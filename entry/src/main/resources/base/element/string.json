@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "HermesEye 个人秘书"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "连接自己的 Hermes，整理个人数据与提醒"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "HermesEye"
+    },
+    {
+      "name": "calendar_reason",
+      "value": "读取今日日程，在你选择后作为秘书对话的上下文"
+    }
+  ]
+}
