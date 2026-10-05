@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "capabilities": [
+    {"id":"environment","implementation":"available","command":"bash scripts/doctor.sh","requires":["bash"],"covers":"工具链、SDK、依赖、签名和设备就绪检查","limits":"运行后才知道环境是否可用；不证明构建或设备验收通过"},
+    {"id":"docs.structure","implementation":"available","command":"node scripts/harness.cjs docs","requires":["Node.js"],"covers":"必需文档、Markdown 文件链接、AGENTS 导航覆盖、标题层级","limits":"仅检查内联 Markdown 链接的文件部分；不检查锚点、HTML 链接、引用式链接或语义一致性"},
+    {"id":"docs.semantic","implementation":"manual","command":null,"requires":["人工或 Agent 按评审清单分析"],"covers":"权威层次、重复冲突、需求到实现和验收的追溯","limits":"没有自动语义判定器，结构检查通过不代表内容合理"},
+    {"id":"app.logic","implementation":"available","command":"node scripts/harness.cjs verify logic","requires":["bash","DevEco Node/TypeScript"],"covers":"生产领域、服务 mock、工作区回归","limits":"不覆盖原生权限、UI、真实服务"},
+    {"id":"app.build","implementation":"available","command":"node scripts/harness.cjs verify full","requires":["bash","DevEco SDK","oh_modules","Previewer"],"covers":"逻辑测试、主包和测试包编译、本地 Hypium","limits":"不安装、不证明设备或端到端通过；沿用 verify.sh 证据协议"},
+    {"id":"app.device","implementation":"available","command":"bash scripts/device.sh test --target <serial>","requires":["hdc 目标","已安装匹配包","设备安装条件"],"covers":"现有设备 Hypium 用例","limits":"需单独执行；不等于完整手动验收；真实设备签名包选择尚未统一"},
+    {"id":"logs.capture","implementation":"available","command":"bash scripts/device.sh log --target <serial>","requires":["hdc 目标"],"covers":"hilog 原始采集","limits":"现有采集不保证仅含应用日志，不自动脱敏；原始日志不得直接发布"},
+    {"id":"logs.analyze","implementation":"available","command":"node scripts/harness.cjs logs <file> [--pid <pid>]","requires":["已有文本日志"],"covers":"hilog 等级计数、ArkTS 诊断、Hypium 汇总、异常关键词线索","limits":"关键词不是根因；不输出原始消息；不代表没有崩溃或泄漏；PID 可能复用"},
+    {"id":"performance.evaluate","implementation":"available","command":"node scripts/harness.cjs perf <samples.json>","requires":["规范化样本","明确场景、设备、构建及采集方式","用户定义的预算"],"covers":"样本数量、p50/p95/max、预算比较","limits":"预算是项目自定义，不是鸿蒙官方标准；不验证样本来源真实性"},
+    {"id":"performance.capture","implementation":"missing","command":null,"requires":["待接入并验证目标 SDK/设备上的 profiler 或 trace"],"covers":"启动、帧耗时、内存、CPU、功耗的自动采集","limits":"当前没有已验证的采集适配器、实测基线或性能验收结论"},
+    {"id":"app.e2e","implementation":"manual","command":null,"requires":["真实 Hermes","授权的测试账号/设备","验收矩阵"],"covers":"真实服务、权限、后台和跨端链路","limits":"未提供统一自动化执行器；按 docs/04-test-plan.md 实测"}
+  ]
+}

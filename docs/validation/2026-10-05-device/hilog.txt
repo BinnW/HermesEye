@@ -1,0 +1,12 @@
+10-05 18:27:15.737  6846  6846 I A00000/com.binn.hermeseye/testTag: Ability onCreate
+10-05 18:27:15.801  6846  6846 I A00000/com.binn.hermeseye/testTag: Ability onWindowStageCreate
+10-05 18:27:15.841  6846  6846 I A00000/com.binn.hermeseye/testTag: Ability onForeground
+10-05 18:27:15.934  6846  6846 I A00000/com.binn.hermeseye/testTag: Succeeded in loading the content.
+10-05 18:27:15.954  6846  6846 I A0050A/com.binn.hermeseye/CalendarApi: napi_module Init start...
+10-05 18:27:15.955  6846  6846 D A0050A/com.binn.hermeseye/CalendarApi: save constructor to calendar.calendarmanager.<private>
+10-05 18:27:15.955  6846  6846 I A0050A/com.binn.hermeseye/CalendarApi: init Calendar 0
+10-05 18:27:15.955  6846  6846 D A0050A/com.binn.hermeseye/CalendarApi: save constructor to calendar.calendarmanager.<private>
+10-05 18:27:15.955  6846  6846 I A0050A/com.binn.hermeseye/CalendarApi: napi_module Init end...
+10-05 18:28:42.249  6846  6846 W C01317/com.binn.hermeseye/AppKit: [JAS292]Not found AbilityStage.js
+10-05 18:28:42.249  6846  6846 W C01321/com.binn.hermeseye/JsRuntime: [js_runtime.cpp1728]invalid nativeRef
+10-05 18:28:42.249  6846  6846 E C01317/com.binn.hermeseye/AppKit: [MTHRD4427]null assertThread

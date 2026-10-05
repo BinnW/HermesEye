@@ -1,0 +1,44 @@
+HermesEye verification
+label:      final
+date:       2026-10-04
+repository: /Users/haobinwen/code/HermesEye
+deveco:     /Applications/DevEco-Studio.app/Contents
+node:       /Applications/DevEco-Studio.app/Contents/tools/node/bin/node (v24.14.1)
+sdk api:    26 (project targets 6.1.1(24))
+timeout:    900s per stage
+
+=== logic-domain: production domain rules (scripts/test-domain.cjs) ===
+  PASS (0s)
+
+=== logic-services: transport and persistence adapters (scripts/test-services.cjs) ===
+  PASS (1s)
+
+=== logic-workspace: V1.0 workspace isolation, migration, secure save (scripts/test-workspace.cjs) ===
+  PASS (0s)
+
+=== hap-default: compile entry HAP (debug, unsigned) ===
+  PASS (3s) -> 21 ArkTS warning(s)
+
+=== hap-ohostest: compile ohosTest HAP (debug, unsigned) ===
+  PASS (3s) -> 1 ArkTS warning(s)
+
+=== hypium-local: run local Hypium unit tests ===
+  PASS (4s)
+
+=== hypium-result: local Hypium result ===
+  source: entry/.test/default/intermediates/test/coverage_data/test_result.txt
+  Tests run: 9, Failure: 0, Error: 0, Pass: 9, Ignore: 0
+  PASS
+
+=== summary ===
+  pass logic-domain         0s  
+  pass logic-services       1s  
+  pass logic-workspace      0s  
+  pass hap-default          3s  21 ArkTS warning(s)
+  pass hap-ohostest         3s  1 ArkTS warning(s)
+  pass hypium-local         4s  0 ArkTS warning(s)
+  pass hypium-result        0s  Tests run: 9, Failure: 0, Error: 0, Pass: 9, Ignore: 0
+  7/7 stages passed
+
+evidence: docs/validation/2026-10-04-final (results.txt, summary.json, per-stage *.log)
+RESULT: PASS

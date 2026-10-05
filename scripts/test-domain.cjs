@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const sdkHome = process.env.DEVECO_HOME || 'D:/dev-tools/DevEco Studio';
-const ts = require(path.join(sdkHome, 'tools/hvigor/hvigor/node_modules/typescript'));
+const { loadTypescript } = require('./lib/deveco-env.cjs');
+const ts = loadTypescript();
 const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/core/Domain.ts'), 'utf8');
 const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS } });
 const sandbox = { exports: {} };
@@ -60,6 +60,26 @@ test('valid response extracted', () => assert.equal(d.parseReply(200, '{"choices
 test('invalid service responses fail explicitly', () => {
   [401, 403, 429, 500].forEach(status => assert.throws(() => d.parseReply(status, '{}')));
   ['not json', '{}', 'null', '{"choices":[]}', '{"choices":[{"message":{"content":null}}]}'].forEach(body => assert.throws(() => d.parseReply(200, body)));
+});
+test('notes context is capped at the latest ten entries', () => {
+  const many = Array.from({ length: 12 }, (_, i) => ({ id: String(i), text: 'note-' + i, createdAt: i }));
+  const context = d.contextText(many, snap, { notes: true, calendar: false, device: false }, 1001);
+  assert.ok(context.includes('note-0')); assert.ok(context.includes('note-9')); assert.ok(!context.includes('note-10'));
+});
+test('request without shared context sends the bare prompt', () => {
+  const result = d.createRequest('hermes-agent', [], ' plain ', '');
+  assert.equal(result.messages.length, 1); assert.equal(result.messages[0].content, 'plain');
+  assert.ok(!result.messages[0].content.includes('personal_context'));
+});
+test('reply boundaries enforce the first-release limits', () => {
+  assert.throws(() => d.parseReply(200, '{"choices":[{"message":{"content":"  "}}]}'));
+  assert.throws(() => d.parseReply(200, JSON.stringify({ choices: [{ message: { content: 'x'.repeat(32001) } }] })));
+  assert.equal(d.parseReply(200, JSON.stringify({ choices: [{ message: { content: 'x'.repeat(32000) } }] })).length, 32000);
+});
+test('cleanText accepts exactly the documented maximum', () => {
+  assert.equal(d.cleanText('a'.repeat(4000)).length, 4000);
+  assert.equal(d.cleanText('b'.repeat(100), 100).length, 100);
+  assert.throws(() => d.cleanText('b'.repeat(101), 100));
 });
 test('storage validation rejects corruption', () => {
   assert.equal(d.validateData(d.initialData()).version, 1);

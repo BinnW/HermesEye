@@ -27,7 +27,8 @@ export function apiBase(value: string, allowLocalHttp: boolean): string {
   const ipv4 = /^\d+\.\d+\.\d+\.\d+$/.test(host) && octets.every((part: number) => part >= 0 && part <= 255);
   if (/^[0-9.]+$/.test(host) && !ipv4) { throw new Error('IP 地址无效'); }
   const local = host === 'localhost' || (ipv4 && (octets[0] === 127 || octets[0] === 10 ||
-    (octets[0] === 192 && octets[1] === 168) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)));
+    (octets[0] === 192 && octets[1] === 168) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+    (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127)));
   if (match[1] === 'http' && (!allowLocalHttp || !local)) {
     throw new Error('请使用 HTTPS；局域网 HTTP 需开启开关并使用内网 IP');
   }

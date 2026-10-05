@@ -1,0 +1,101 @@
+2026-10-03 每日计划模块 · 现有回归及编译结果
+命令：bash scripts/test-deveco.sh
+执行退出码：0（沙箱外运行现有 DevEco 工具链）
+未新增用例。沙箱内 Previewer 无响应，已终止本轮进程后重跑。
+
+PASS HTTPS path normalization
+PASS HTTP requires opt-in and private host
+PASS ambiguous addresses rejected
+PASS blank and oversized input rejected
+PASS clock boundaries
+PASS unselected data never enters context
+PASS expired and missing snapshots blocked
+PASS request preserves conversation and does not mutate history
+PASS valid response extracted
+PASS invalid service responses fail explicitly
+PASS notes context is capped at the latest ten entries
+PASS request without shared context sends the bare prompt
+PASS reply boundaries enforce the first-release limits
+PASS cleanText accepts exactly the documented maximum
+PASS storage validation rejects corruption
+15 tests passed; production domain rules, no device APIs mocked as verified.
+PASS HTTP adapter uses expected endpoint, bearer, and disables redirects
+PASS transport failure is sanitized, cleaned up, and never auto-retried
+PASS missing credentials cause no network operation
+PASS stopped request discards a late reply and releases the transport once
+PASS transport rejection after stop reports uncertainty without retry
+PASS phone calendar requests whole-calendar read permission and filters today
+PASS denied calendar permission never queries data and explains recovery
+PASS authorized empty calendar is distinct from denied access
+PASS calendar instances retain stable identities and actual occurrence times
+PASS calendar entries skip events outside today and merge calendars in start order
+PASS calendar entries fall back to event times and default the all-day flag
+PASS first load initializes empty data and Unicode survives partial writes
+PASS failed atomic replacement preserves previous persisted data
+PASS damaged storage fails load instead of silently overwriting records
+PASS keyboard resizes with caret and navigation follows actual visibility, not focus
+PASS already visible keyboard is detected when attaching
+PASS leaving before window lookup completes cannot attach a stale keyboard listener
+PASS restarting keyboard observation removes only its own listener and ignores queued old events
+PASS connection check probes the models endpoint with GET and bearer
+PASS connection check distinguishes authentication, HTTP and protocol failures
+PASS blank token is rejected before touching secure storage
+PASS missing reference reads as absent without a backend call
+PASS reminder registration requests notification first and maps weekday sets
+PASS invalid reminder input fails before any system registration
+PASS cancelling a reminder passes through the system identifier
+25 service tests passed with injected platform adapters; not a device/network integration test.
+PASS production send failure keeps the attempted prompt visible with its error
+PASS production send success never touches another conversation draft
+PASS production send shows pending input while transport waits and commits one pair
+PASS production send retains input on network failure without retry
+PASS production send keeps reply in memory and removes duplicate pending bubble after disk failure
+PASS calendar import selects explicitly, deduplicates and preserves project and source
+PASS calendar import in a detached snapshot does not modify saved data
+PASS calendar import ignores empty selections and deduplicates per space
+PASS invalid calendar sources are rejected while legacy plans stay valid
+PASS oversized calendar titles fail the import before any persistence
+PASS fresh workspace contains no fabricated remote statistics
+PASS migration preserves notes, reminders and assigns old chat an independent need
+PASS migration retains valid connection fields without inventing a credential or uploading data
+PASS corrupt legacy data cannot silently become an empty workspace
+PASS same-name aimless needs have independent identifiers and histories
+PASS linked plan reopens its existing need
+PASS invalid owners cannot create orphan conversations
+PASS rename and move retain original identity and history
+PASS server selection separates local data and distinct origins
+PASS canonical address normalizes case and validates ports and credentials
+PASS Tailscale range requires HTTP opt-in and rejects public boundary addresses
+PASS daily counts distinguish dates and explicit statuses
+PASS interval record permits text-only and rejects partial, reversed or future periods
+PASS report uses occurrence date and identifies backfills and missing coverage
+PASS local history has no inherited 100-message persistence limit
+PASS validation rejects duplicates, dangling ownership and invalid statistics
+PASS workspace copies are fully detached from the persisted snapshot
+PASS a committed send lives only in the new snapshot the chat page must render
+PASS a workspace pointing at a missing space is rejected
+PASS connection must match the active remote space
+PASS a stored link to a missing conversation fails loudly instead of recreating it
+PASS renaming to blank is rejected and keeps identity
+PASS text-only records report under their save date
+PASS migration ignores malformed historical addresses but keeps data local
+PASS migration applies scheme default ports and keeps the private-HTTP choice
+PASS operation feedback toasts deduplicate briefly and extend errors
+PASS chat page renders live messages with the pending bubble below history
+PASS operation feedback uses toast without a residual top banner
+PASS workspace migration is atomic and retains legacy source
+PASS failed replacement or zero-byte write keeps previous persisted data
+PASS damaged v2 never falls back to older data and overwrites it
+PASS secure credentials survive instance recreation and never enter business JSON
+PASS secure-storage failure cannot write plaintext or report saved
+PASS configuration failure preserves previous credential and removes staged secret
+PASS invalid connection is rejected before touching secure storage
+PASS re-saving a connection replaces the old credential exactly once
+PASS blank token stages no secret and leaves the workspace unsaved
+47 V1 workspace tests passed; platform APIs injected, not device acceptance.
+> hvigor WARN: Will skip sign 'hos_hap'. No signingConfigs profile is configured in current project.
+> hvigor BUILD SUCCESSFUL in 3 s 664 ms 
+> hvigor WARN: Will skip sign 'hos_hap'. No signingConfigs profile is configured in current project.
+> hvigor BUILD SUCCESSFUL in 2 s 446 ms 
+> hvigor BUILD SUCCESSFUL in 3 s 292 ms 
+Tests run: 9, Failure: 0, Error: 0, Pass: 9, Ignore: 0

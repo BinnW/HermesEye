@@ -2,12 +2,25 @@ import { http } from '@kit.NetworkKit';
 import { apiBase, ChatRequest, parseReply, Settings } from '../core/Domain';
 
 export class HermesClient {
+  private active: http.HttpRequest | undefined = undefined;
+  private stopped: boolean = false;
+
+  stop(): void {
+    this.stopped = true;
+    if (this.active) {
+      this.active.destroy();
+      this.active = undefined;
+    }
+  }
+
   private async request(settings: Settings, token: string, path: string, body: string): Promise<http.HttpResponse> {
     const base = apiBase(settings.baseUrl, settings.allowLocalHttp);
     if (!token.trim()) { throw new Error('请在设置页输入本次使用的 Token'); }
     const client = http.createHttp();
+    this.active = client;
+    this.stopped = false;
     try {
-      return await client.request(base + path, {
+      const response = await client.request(base + path, {
         method: body ? http.RequestMethod.POST : http.RequestMethod.GET,
         header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token.trim()}` },
         extraData: body,
@@ -18,9 +31,14 @@ export class HermesClient {
         maxRedirects: 0,
         maxLimit: 1024 * 1024
       });
+      if (this.stopped) { throw new Error('Request stopped'); }
+      return response;
     } catch {
+      if (this.stopped) { throw new Error('已停止等待，输入已保留。服务端可能仍在执行，请确认后再发送'); }
       throw new Error('连接中断或超时。服务端可能仍在执行，请确认后再重试');
-    } finally { client.destroy(); }
+    } finally {
+      if (this.active === client) { client.destroy(); this.active = undefined; }
+    }
   }
 
   async check(settings: Settings, token: string): Promise<void> {

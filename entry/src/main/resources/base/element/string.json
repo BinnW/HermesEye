@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "HermesEye 个人秘书"
+      "value": "HermesEye 个人事务统一入口"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "连接自己的 Hermes，整理个人数据与提醒"
+      "value": "连接 Hermes，统一计划、项目、阅读与需求会话"
     },
     {
       "name": "EntryAbility_label",
@@ -14,7 +14,7 @@
     },
     {
       "name": "calendar_reason",
-      "value": "读取今日日程，在你选择后作为秘书对话的上下文"
+      "value": "读取手机日历中各应用创建的今日日程并在本机展示，仅在你选择分享后用于助手对话"
     }
   ]
 }

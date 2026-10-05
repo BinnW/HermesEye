@@ -1,0 +1,12 @@
+2026-10-03 · macOS / DevEco Studio HarmonyOS 6.1.1 API 24
+Scope: regression redesign for emulator issues 1-5 (docs/10-test_record.md). Test+docs only, no production changes.
+Command: bash scripts/test-deveco.sh -> exit 0
+
+15 tests passed; production domain rules, no device APIs mocked as verified.
+25 service tests passed with injected platform adapters; not a device/network integration test.
+47 V1 workspace tests passed; platform APIs injected, not device acceptance.
+hvigor BUILD SUCCESSFUL x3 (debug entry, ohosTest, Previewer test task)
+Tests run: 9, Failure: 0, Error: 0, Pass: 9, Ignore: 0
+
+New cases this round: S24-S25 (calendar range/merge, fallback/all-day), W38-W39 (send failure bubble, cross-draft), W42-W44 (calendar empty/per-space, source validation, oversized atomic), W45 (toast dedupe), W46-W47 (page source guards), L08-L09 (calendar import mirrors).
+Device UI and real Hermes acceptance: NOT RUN (D13-1..5 pending manual/device pass).

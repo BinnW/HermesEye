@@ -2,7 +2,99 @@
   "color": [
     {
       "name": "start_window_background",
+      "value": "#F5F2EA"
+    },
+    {
+      "name": "bg_page",
+      "value": "#F5F2EA"
+    },
+    {
+      "name": "bg_surface",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "bg_elevated",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "text_primary",
+      "value": "#202326"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#637168"
+    },
+    {
+      "name": "action_primary",
+      "value": "#34785A"
+    },
+    {
+      "name": "action_pressed",
+      "value": "#285E46"
+    },
+    {
+      "name": "action_on_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "selection_bg",
+      "value": "#E8F0EB"
+    },
+    {
+      "name": "selection_text",
+      "value": "#285E46"
+    },
+    {
+      "name": "border_subtle",
+      "value": "#DCE4DE"
+    },
+    {
+      "name": "border_control",
+      "value": "#75857A"
+    },
+    {
+      "name": "focus",
+      "value": "#34785A"
+    },
+    {
+      "name": "disabled_bg",
+      "value": "#E4E7E2"
+    },
+    {
+      "name": "disabled_text",
+      "value": "#758079"
+    },
+    {
+      "name": "status_success",
+      "value": "#34785A"
+    },
+    {
+      "name": "status_success_bg",
+      "value": "#E8F0EB"
+    },
+    {
+      "name": "status_warning",
+      "value": "#96501C"
+    },
+    {
+      "name": "status_warning_bg",
+      "value": "#FFF0E2"
+    },
+    {
+      "name": "status_error",
+      "value": "#A73535"
+    },
+    {
+      "name": "status_error_bg",
+      "value": "#FDECEC"
+    },
+    {
+      "name": "status_info",
+      "value": "#4B6E8A"
+    },
+    {
+      "name": "status_info_bg",
+      "value": "#EDF3F7"
     }
   ]
 }

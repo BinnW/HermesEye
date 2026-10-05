@@ -1,0 +1,49 @@
+PASS production send failure keeps the attempted prompt visible with its error
+PASS production send success never touches another conversation draft
+PASS production send shows pending input while transport waits and commits one pair
+PASS production send retains input on network failure without retry
+PASS production send keeps reply in memory and removes duplicate pending bubble after disk failure
+PASS calendar import selects explicitly, deduplicates and preserves project and source
+PASS calendar import in a detached snapshot does not modify saved data
+PASS calendar import ignores empty selections and deduplicates per space
+PASS invalid calendar sources are rejected while legacy plans stay valid
+PASS oversized calendar titles fail the import before any persistence
+PASS fresh workspace contains no fabricated remote statistics
+PASS migration preserves notes, reminders and assigns old chat an independent need
+PASS migration retains valid connection fields without inventing a credential or uploading data
+PASS corrupt legacy data cannot silently become an empty workspace
+PASS same-name aimless needs have independent identifiers and histories
+PASS linked plan reopens its existing need
+PASS invalid owners cannot create orphan conversations
+PASS rename and move retain original identity and history
+PASS server selection separates local data and distinct origins
+PASS canonical address normalizes case and validates ports and credentials
+PASS Tailscale range requires HTTP opt-in and rejects public boundary addresses
+PASS daily counts distinguish dates and explicit statuses
+PASS interval record permits text-only and rejects partial, reversed or future periods
+PASS report uses occurrence date and identifies backfills and missing coverage
+PASS local history has no inherited 100-message persistence limit
+PASS validation rejects duplicates, dangling ownership and invalid statistics
+PASS workspace copies are fully detached from the persisted snapshot
+PASS a committed send lives only in the new snapshot the chat page must render
+PASS a workspace pointing at a missing space is rejected
+PASS connection must match the active remote space
+PASS a stored link to a missing conversation fails loudly instead of recreating it
+PASS renaming to blank is rejected and keeps identity
+PASS text-only records report under their save date
+PASS migration ignores malformed historical addresses but keeps data local
+PASS migration applies scheme default ports and keeps the private-HTTP choice
+PASS operation feedback toasts deduplicate briefly and extend errors
+PASS chat page renders live messages with the pending bubble below history
+PASS operation feedback uses toast without a residual top banner
+PASS workspace migration is atomic and retains legacy source
+PASS failed replacement or zero-byte write keeps previous persisted data
+PASS damaged v2 never falls back to older data and overwrites it
+PASS secure credentials survive instance recreation and never enter business JSON
+PASS secure-storage failure cannot write plaintext or report saved
+PASS configuration failure preserves previous credential and removes staged secret
+PASS invalid connection is rejected before touching secure storage
+PASS re-saving a connection replaces the old credential exactly once
+PASS blank token stages no secret and leaves the workspace unsaved
+
+47 V1 workspace tests passed; platform APIs injected, not device acceptance.

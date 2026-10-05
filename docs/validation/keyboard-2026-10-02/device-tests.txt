@@ -1,0 +1,93 @@
+start ability successfully.
+
+OHOS_REPORT_SUM: 4
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=1
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=fourMainDestinationsAreAccessible
+OHOS_REPORT_STATUS_CODE: 1
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=1
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=fourMainDestinationsAreAccessible
+OHOS_REPORT_STATUS_CODE: 0
+OHOS_REPORT_STATUS: consuming=46
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=2
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=readingShowsMissingDataInsteadOfFakeStatistics
+OHOS_REPORT_STATUS_CODE: 1
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=2
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=readingShowsMissingDataInsteadOfFakeStatistics
+OHOS_REPORT_STATUS_CODE: 0
+OHOS_REPORT_STATUS: consuming=538
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=3
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=keyboardLeavesFormScrollableAndRestoresNavigationWithoutLosingInput
+OHOS_REPORT_STATUS_CODE: 1
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=3
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=keyboardLeavesFormScrollableAndRestoresNavigationWithoutLosingInput
+OHOS_REPORT_STATUS_CODE: 0
+OHOS_REPORT_STATUS: consuming=17367
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=4
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=systemAssetPersistsAcrossStoreInstances
+OHOS_REPORT_STATUS_CODE: 1
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: current=4
+OHOS_REPORT_STATUS: id=JS
+OHOS_REPORT_STATUS: numtests=4
+OHOS_REPORT_STATUS: stream=
+OHOS_REPORT_STATUS: test=systemAssetPersistsAcrossStoreInstances
+OHOS_REPORT_STATUS_CODE: 0
+OHOS_REPORT_STATUS: consuming=20
+
+
+OHOS_REPORT_STATUS: class=WorkspaceV1Device
+OHOS_REPORT_STATUS: suiteconsuming=17971
+
+
+OHOS_REPORT_RESULT: stream=Tests run: 4, Failure: 0, Error: 0, Pass: 4, Ignore: 0
+OHOS_REPORT_CODE: 0
+OHOS_REPORT_STATUS: taskconsuming=17971
+
+TestFinished-ResultCode: 0
+TestFinished-ResultMsg: your test finished!!!
+user test finished.
