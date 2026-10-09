@@ -4,11 +4,18 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const { loadTypescript } = require('./lib/deveco-env.cjs');
 const ts = loadTypescript();
+const platformLogs = [];
 function load(relative, imports = {}) {
+  if (relative !== 'services/PlatformErrors.ets' && relative !== 'services/Logging.ets') {
+    imports = { './PlatformErrors': load('services/PlatformErrors.ets', {
+      '@kit.PerformanceAnalysisKit': { hilog: { error: (...args) => platformLogs.push(args) } },
+      './Logging': load('services/Logging.ets')
+    }), ...imports };
+  }
   const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets', relative), 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS } });
   const sandbox = { exports: {}, require(name) { if (!(name in imports)) throw Error('Unexpected import ' + name); return imports[name]; } };
-  vm.runInNewContext(output.outputText, sandbox);
+  vm.runInNewContext(output.outputText, sandbox, { filename: path.join(__dirname, '../entry/src/main/ets', relative) });
   return sandbox.exports;
 }
 const d = load('core/Domain.ts');
@@ -20,6 +27,31 @@ function connection(host = 'example.org') {
 }
 function project(id = 'p1') { return { id, name: 'Learn', goal: 'Understand', managedBy: 'manual', nextStep: '' }; }
 function record(overrides = {}) { return { id: 'r1', text: 'Learned something', unfinished: '', energy: '', decision: '', nextTodo: '', start: null, end: null, createdAt: Date.now(), backfilled: false, ...overrides }; }
+function book(id = 'b1') {
+  return { id, title: 'Book', progress: null, notes: null, highlights: null, thoughts: null,
+    weeklySummaries: null, source: 'WeRead', updatedAt: 1, excerpts: [], summaries: [] };
+}
+function plan(overrides = {}) { return { id: 'plan1', date: '2026-10-01', title: 'Read', status: 'todo', projectId: '', ...overrides }; }
+function richWorkspace() {
+  const data = w.newWorkspace(); const space = w.activeSpace(data);
+  space.projects.push(project());
+  const need = w.createNeed(space, 'Learn', 'project', 'p1');
+  need.messages.push({ role: 'user', content: 'hello' }, { role: 'assistant', content: 'hi' });
+  space.plans.push({ ...plan({ projectId: 'p1', priority: 'normal', minutes: 30, note: 'note',
+    suggestionKey: 'plan/src', suggestionReason: 'from record' }) });
+  space.records.push(record());
+  space.books.push(book());
+  space.runs.push({ id: 'run1', needId: need.id, status: 'ok', updatedAt: 1, events: [], artifacts: [], deployment: 'local' });
+  space.reminders.push({ id: 't1', title: 'Read', time: '08:30', weekdays: false, reminderId: 1 });
+  space.lastSyncAt = 1;
+  w.linkedNeed(space, 'Learn', 'project', 'p1');
+  return data;
+}
+function withSpace(mutate) {
+  const data = w.newWorkspace();
+  mutate(w.activeSpace(data));
+  return data;
+}
 
 function sendHarness() {
   const page = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/pages/Index.ets'), 'utf8');
@@ -29,7 +61,7 @@ function sendHarness() {
   }).outputText;
   const sandbox = { exports: {}, copyWorkspace: w.copyWorkspace, activeSpace: w.activeSpace,
     serverKey: w.serverKey, createRequest: d.createRequest };
-  vm.runInNewContext(compiled, sandbox);
+  vm.runInNewContext(compiled, sandbox, { filename: path.join(__dirname, '../entry/src/main/ets/pages/Index.ets') });
   const h = new sandbox.exports.Harness();
   h.data = w.newWorkspace(); w.selectConnection(h.data, connection());
   const need = w.createNeed(w.activeSpace(h.data), 'Chat', 'independent', '');
@@ -301,7 +333,8 @@ async function main() {
     const compiled = ts.transpileModule('class ToastHarness {' + method + '} exports.ToastHarness = ToastHarness;', {
       compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS }
     }).outputText;
-    const sandbox = { exports: {} };
+    const presentation = load('services/SystemPresentation.ets', { '@kit.AbilityKit': { ConfigurationConstant: {} } });
+    const sandbox = { exports: {}, showToast: presentation.showToast };
     vm.runInNewContext(compiled, sandbox);
     const h = new sandbox.exports.ToastHarness();
     const toasts = [];
@@ -316,6 +349,14 @@ async function main() {
     assert.equal(toasts.length, 2); assert.equal(toasts[1].duration, 5000);
     h.lastToastAt = Date.now() - 2000; h.notice('failed', true);
     assert.equal(toasts.length, 3);
+  });
+  await test('failed Toast is not marked displayed and the same feedback may be shown after recovery', () => {
+    const { h, toasts } = toastHarness();
+    const context = h.getUIContext;
+    h.getUIContext = () => ({ getPromptAction: () => ({ showToast() { throw Object.assign(Error('secret'), { code: 100001 }); } }) });
+    assert.doesNotThrow(() => h.notice('saved'));
+    assert.notEqual(h.lastToast, 'saved');
+    h.getUIContext = context; h.notice('saved'); assert.equal(toasts.length, 1);
   });
   await test('chat page renders live messages with the pending bubble below history', () => {
     const page = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/pages/Index.ets'), 'utf8');
@@ -404,6 +445,278 @@ async function main() {
     const before = secrets.size; const previousSaved = saved;
     await assert.rejects(() => connectionService.save(w.newWorkspace(), connection(), '  '), /Token/);
     assert.equal(secrets.size, before); assert.equal(saved, previousSaved);
+  });
+
+  await test('shiftDay moves across month boundaries and rejects invalid dates', () => {
+    assert.equal(w.shiftDay('2026-10-01', 0), '2026-10-01');
+    assert.equal(w.shiftDay('2026-10-01', 1), '2026-10-02');
+    assert.equal(w.shiftDay('2026-03-01', -1), '2026-02-28');
+    assert.throws(() => w.shiftDay('2026-13-01', 1), /日期/);
+  });
+  await test('savePlan validates every field before writing anything', () => {
+    const space = w.newSpace('local'); space.projects.push(project());
+    assert.throws(() => w.savePlan(space, '', 'bad', 'Read', '', 'normal', '', ''), /日期/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', '   ', '', 'normal', '', ''), /内容/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', 'missing', 'normal', '', ''), /项目/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', '', 'urgent', '', ''), /优先级/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', '', 'normal', 'soon', ''), /预计用时/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', '', 'normal', '-5', ''), /预计用时/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', '', 'normal', '1441', ''), /预计用时/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', '', 'normal', '0', ''), /大于 0/);
+    assert.throws(() => w.savePlan(space, '', '2026-10-01', 'Read', '', 'normal', '', 'x'.repeat(4001)), /4000/);
+    assert.equal(space.plans.length, 0);
+  });
+  await test('savePlan updates an existing item in place and keeps its status', () => {
+    const space = w.newSpace('local'); space.projects.push(project());
+    w.savePlan(space, '', '2026-10-01', 'Read', 'p1', 'normal', '', '');
+    const id = space.plans[0].id; space.plans[0].status = 'doing';
+    w.savePlan(space, id, '2026-10-01', ' Read more ', 'p1', 'important', ' 30 ', ' note ');
+    assert.equal(space.plans.length, 1); assert.equal(space.plans[0].title, 'Read more');
+    assert.equal(space.plans[0].priority, 'important'); assert.equal(space.plans[0].minutes, 30);
+    assert.equal(space.plans[0].note, 'note'); assert.equal(space.plans[0].status, 'doing');
+  });
+  await test('savePlan refuses to reschedule imported calendar items and unknown ids', () => {
+    const space = w.newSpace('local');
+    space.plans.push(plan({ id: 'cal', calendarSource: { key: 'k', title: 'Meeting', start: 1, end: 2, allDay: false } }));
+    assert.throws(() => w.savePlan(space, 'cal', '2026-10-02', 'Meeting', '', 'normal', '', ''), /日历事项/);
+    assert.throws(() => w.savePlan(space, 'gone', '2026-10-01', 'Read', '', 'normal', '', ''), /计划已不存在/);
+    assert.equal(space.plans.length, 1);
+  });
+  await test('removePlan detaches a plan-owned conversation and its link', () => {
+    const space = w.newSpace('local'); space.plans.push(plan({ id: 'p1' }));
+    const need = w.createNeed(space, 'Read', 'plan', 'p1');
+    space.links.push({ kind: 'plan', ownerId: 'p1', needId: need.id }, { kind: 'independent', ownerId: '', needId: need.id });
+    w.removePlan(space, 'p1');
+    assert.equal(space.plans.length, 0); assert.equal(need.ownerKind, 'independent'); assert.equal(need.ownerId, '');
+    assert.equal(space.links.length, 1); assert.equal(space.links[0].kind, 'independent');
+    assert.throws(() => w.removePlan(space, 'p1'), /计划已不存在/);
+  });
+  await test('planSuggestions ranks recent unfinished plans and record todos', () => {
+    const space = w.newSpace('local');
+    space.plans.push(
+      plan({ id: 'a', date: '2026-10-05', title: 'Later' }),
+      plan({ id: 'b', date: '2026-10-06', title: 'Doing', status: 'doing' }),
+      plan({ id: 'c', date: '2026-10-04', title: 'Done', status: 'done' }),
+      plan({ id: 'd', date: '2026-10-03', title: 'Imported', calendarSource: { key: 'k', title: 'I', start: 1, end: 2, allDay: false } }),
+      plan({ id: 'e', date: '2026-09-01', title: 'Old' })
+    );
+    space.records.push(
+      record({ id: 'r1', nextTodo: 'Follow up', createdAt: new Date('2026-10-05T08:00').getTime() }),
+      record({ id: 'r2', nextTodo: '   ', createdAt: new Date('2026-10-05T09:00').getTime() })
+    );
+    const suggestions = w.planSuggestions(space, '2026-10-07');
+    assert.deepEqual(Array.from(suggestions, item => item.key), ['plan/b', 'plan/a', 'record/r1']);
+    assert.match(suggestions[0].reason, /进行中/);
+    assert.match(suggestions[1].reason, /未完成/);
+    assert.match(suggestions[2].reason, /新增待办/);
+    assert.deepEqual(Array.from(w.planSuggestions(space, 'bad')), []);
+  });
+  await test('planSuggestions skips oversized titles and already adopted keys', () => {
+    const space = w.newSpace('local');
+    space.plans.push(plan({ id: 'long', date: '2026-10-06', title: 'y'.repeat(201) }));
+    assert.deepEqual(Array.from(w.planSuggestions(space, '2026-10-07')), []);
+    space.plans.push(plan({ id: 'kept', date: '2026-10-05', title: 'Keep' }));
+    assert.deepEqual(Array.from(w.planSuggestions(space, '2026-10-07'), item => item.key), ['plan/kept']);
+    space.plans.push(plan({ id: 'adopted', date: '2026-10-07', suggestionKey: 'plan/kept' }));
+    assert.deepEqual(Array.from(w.planSuggestions(space, '2026-10-07')), []);
+  });
+  await test('planSuggestions marks a backfilled record todo as backfilled', () => {
+    const space = w.newSpace('local');
+    space.records.push(record({ id: 'r9', nextTodo: 'Review', createdAt: new Date('2026-10-05T08:00').getTime(), backfilled: true }));
+    const suggestions = w.planSuggestions(space, '2026-10-07');
+    assert.equal(suggestions.length, 1); assert.equal(suggestions[0].title, 'Review'); assert.match(suggestions[0].reason, /补记/);
+  });
+  await test('adoptPlanSuggestion materialises a suggestion exactly once', () => {
+    const space = w.newSpace('local');
+    space.plans.push(plan({ id: 'src', date: '2026-10-06', title: 'Read' }));
+    w.adoptPlanSuggestion(space, '2026-10-07', 'plan/src');
+    assert.equal(space.plans.length, 2); assert.equal(space.plans[1].status, 'todo');
+    assert.equal(space.plans[1].suggestionKey, 'plan/src'); assert.match(space.plans[1].suggestionReason, /来源计划 src/);
+    assert.throws(() => w.adoptPlanSuggestion(space, '2026-10-07', 'plan/src'), /建议已采纳/);
+  });
+  await test('calendarBusyMinutes merges overlaps and ignores all-day or off-day items', () => {
+    const day = new Date('2026-10-01T00:00:00').getTime(); const minute = 60000;
+    const source = (start, end, allDay = false) => ({ key: 'k', title: 'Meeting', start, end, allDay });
+    const space = w.newSpace('local');
+    space.plans.push(
+      plan({ id: 'a', calendarSource: source(day + 10 * minute, day + 30 * minute) }),
+      plan({ id: 'b', calendarSource: source(day + 20 * minute, day + 40 * minute) }),
+      plan({ id: 'c', calendarSource: source(day + 5 * minute, day + 12 * minute) }),
+      plan({ id: 'd', calendarSource: source(day - 60 * minute, day + 45 * minute) }),
+      plan({ id: 'e', calendarSource: source(day + 50 * minute, day + 80 * minute, true) }),
+      plan({ id: 'f', date: '2026-10-02', calendarSource: source(day + 90 * minute, day + 120 * minute) }),
+      plan({ id: 'g', calendarSource: source(day - 120 * minute, day - 60 * minute) })
+    );
+    assert.equal(w.calendarBusyMinutes(space, '2026-10-01'), 45);
+    assert.equal(w.calendarBusyMinutes(space, 'bad-date'), 0);
+  });
+  await test('ownerExists resolves every owner kind and rejects unknown kinds', () => {
+    const space = w.newSpace('local');
+    space.projects.push(project()); space.plans.push(plan({ id: 'plan1' })); space.books.push(book());
+    assert.equal(w.ownerExists(space, 'independent', ''), true);
+    assert.equal(w.ownerExists(space, 'project', 'p1'), true);
+    assert.equal(w.ownerExists(space, 'plan', 'plan1'), true);
+    assert.equal(w.ownerExists(space, 'book', 'b1'), true);
+    assert.equal(w.ownerExists(space, 'project', 'missing'), false);
+    assert.equal(w.ownerExists(space, 'ghost', ''), false);
+  });
+  await test('book-owned needs require an existing reading item', () => {
+    const space = w.newSpace('local');
+    assert.throws(() => w.createNeed(space, 'read', 'book', 'missing'), /归属/);
+    space.books.push(book());
+    const need = w.createNeed(space, 'read', 'book', 'b1');
+    assert.equal(need.ownerKind, 'book'); assert.equal(need.ownerId, 'b1');
+  });
+  await test('linkedNeed reuses an existing matching conversation before creating one', () => {
+    const space = w.newSpace('local'); space.projects.push(project());
+    const created = w.createNeed(space, 'Learn', 'project', 'p1');
+    const linked = w.linkedNeed(space, 'Learn', 'project', 'p1');
+    assert.equal(linked.id, created.id); assert.equal(space.needs.length, 1); assert.equal(space.links.length, 1);
+    assert.throws(() => w.linkedNeed(w.newSpace('local'), 'Learn', 'project', 'p1'), /需求来源不存在/);
+  });
+  await test('moveNeed rejects an unknown conversation and can detach a need from its project', () => {
+    const space = w.newSpace('local'); space.projects.push(project());
+    assert.throws(() => w.moveNeed(space, 'missing', 'Name', ''), /会话不存在/);
+    const need = w.createNeed(space, 'Learn', 'project', 'p1');
+    w.moveNeed(space, need.id, 'Detached', '');
+    assert.equal(need.ownerKind, 'independent'); assert.equal(need.ownerId, ''); assert.equal(need.name, 'Detached');
+  });
+  await test('validateRecord rejects non-string notes and invalid timestamps', () => {
+    assert.throws(() => w.validateRecord(record({ nextTodo: 5 })), /记录字段无效/);
+    assert.throws(() => w.validateRecord(record({ unfinished: 'x'.repeat(4001) })), /记录字段无效/);
+    assert.throws(() => w.validateRecord(record({ createdAt: NaN })), /记录时间无效/);
+    assert.throws(() => w.validateRecord(record({ backfilled: 'yes' })), /记录时间无效/);
+  });
+  await test('migration keeps a public HTTP address out of the local workspace', () => {
+    const old = d.initialData(); old.notes.push({ id: 'n', text: 'legacy', createdAt: 1 });
+    old.settings.baseUrl = 'http://8.8.8.8';
+    const data = w.migrateLegacy(old);
+    assert.equal(data.connection, null); assert.equal(data.spaces.length, 1);
+    assert.equal(w.activeSpace(data).records.length, 1);
+  });
+  await test('a fully populated workspace validates and keeps its link and run', () => {
+    const data = richWorkspace();
+    assert.equal(w.validateWorkspace(data), data);
+    assert.equal(w.activeSpace(data).links.length, 1);
+    assert.equal(w.activeSpace(data).lastSyncAt, 1);
+  });
+  await test('validateWorkspace rejects unsupported versions, appearance and spaces', () => {
+    assert.throws(() => w.validateWorkspace(null), /版本或格式异常/);
+    assert.throws(() => w.validateWorkspace({ ...w.newWorkspace(), version: 3 }), /版本或格式异常/);
+    assert.throws(() => w.validateWorkspace({ ...w.newWorkspace(), appearance: 3 }), /版本或格式异常/);
+    assert.throws(() => w.validateWorkspace({ ...w.newWorkspace(), spaces: null }), /版本或格式异常/);
+  });
+  await test('validateWorkspace rejects a connection with mistyped switching flags', () => {
+    const build = () => { const data = w.newWorkspace(); w.selectConnection(data, connection()); return data; };
+    const auto = build(); auto.connection = { ...auto.connection, autoConnect: 'yes' };
+    assert.throws(() => w.validateWorkspace(auto), /连接配置损坏/);
+    const http = build(); http.connection = { ...http.connection, allowPrivateHttp: 'no' };
+    assert.throws(() => w.validateWorkspace(http), /连接配置损坏/);
+    const ref = build(); ref.connection = { ...ref.connection, credentialRef: 5 };
+    assert.throws(() => w.validateWorkspace(ref), /连接配置损坏/);
+    w.validateWorkspace(build());
+  });
+  await test('validateWorkspace rejects a space whose collections are not arrays', () => {
+    const data = w.newWorkspace(); w.activeSpace(data).books = null;
+    assert.throws(() => w.validateWorkspace(data), /数据集合损坏/);
+  });
+  await test('validateWorkspace rejects invalid sync timestamps', () => {
+    const zero = w.newWorkspace(); w.activeSpace(zero).lastSyncAt = 0;
+    assert.throws(() => w.validateWorkspace(zero), /同步时间无效/);
+    const broken = w.newWorkspace(); w.activeSpace(broken).lastSyncAt = NaN;
+    assert.throws(() => w.validateWorkspace(broken), /同步时间无效/);
+  });
+  await test('validateWorkspace rejects invalid project ownership metadata', () => {
+    const managed = w.newWorkspace(); w.activeSpace(managed).projects.push({ ...project(), managedBy: 'robot' });
+    assert.throws(() => w.validateWorkspace(managed), /项目托管信息无效/);
+    const step = w.newWorkspace(); w.activeSpace(step).projects.push({ ...project(), nextStep: 5 });
+    assert.throws(() => w.validateWorkspace(step), /项目托管信息无效/);
+  });
+  await test('validateWorkspace rejects invalid plan detail fields', () => {
+    const reject = patch => {
+      const data = w.newWorkspace(); w.activeSpace(data).plans.push({ ...plan(), ...patch });
+      assert.throws(() => w.validateWorkspace(data), /计划详情格式无效/);
+    };
+    reject({ priority: 'urgent' }); reject({ minutes: -1 }); reject({ minutes: 1.5 }); reject({ minutes: 1441 });
+    reject({ note: 5 }); reject({ note: 'x'.repeat(4001) });
+    reject({ suggestionKey: 5 }); reject({ suggestionKey: 'x'.repeat(201) });
+    reject({ suggestionReason: 5 }); reject({ suggestionReason: 'x'.repeat(1001) });
+  });
+  await test('validateWorkspace rejects plans with dangling projects or invalid status and date', () => {
+    const build = overrides => { const data = w.newWorkspace(); w.activeSpace(data).plans.push(plan(overrides)); return data; };
+    assert.throws(() => w.validateWorkspace(build({ projectId: 'missing' })), /计划格式无效/);
+    assert.throws(() => w.validateWorkspace(build({ status: 'later' })), /计划格式无效/);
+    assert.throws(() => w.validateWorkspace(build({ date: '2026-02-30' })), /计划格式无效/);
+  });
+  await test('validateWorkspace rejects conversations with invalid ownership or history', () => {
+    const build = () => {
+      const data = w.newWorkspace(); const space = w.activeSpace(data);
+      space.projects.push(project());
+      const need = w.createNeed(space, 'Learn', 'project', 'p1');
+      need.messages.push({ role: 'user', content: 'hello' });
+      return { data, need };
+    };
+    const owner = build(); owner.need.ownerId = 'absent';
+    assert.throws(() => w.validateWorkspace(owner.data), /会话归属或历史无效/);
+    const time = build(); time.need.createdAt = NaN;
+    assert.throws(() => w.validateWorkspace(time.data), /会话归属或历史无效/);
+    const history = build(); history.need.messages = null;
+    assert.throws(() => w.validateWorkspace(history.data), /会话归属或历史无效/);
+    const injected = build(); injected.need.messages.push({ role: 'system', content: 'x' });
+    assert.throws(() => w.validateWorkspace(injected.data), /消息格式无效/);
+  });
+  await test('validateWorkspace rejects reading statistics outside their contract', () => {
+    const build = patch => withSpace(space => space.books.push({ ...book(), ...patch }));
+    assert.throws(() => w.validateWorkspace(build({ progress: 5 })), /阅读数据/);
+    assert.throws(() => w.validateWorkspace(build({ updatedAt: 0 })), /阅读数据/);
+    assert.throws(() => w.validateWorkspace(build({ updatedAt: NaN })), /阅读数据/);
+    assert.throws(() => w.validateWorkspace(build({ excerpts: null })), /阅读数据/);
+    assert.throws(() => w.validateWorkspace(build({ summaries: null })), /阅读数据/);
+    assert.throws(() => w.validateWorkspace(build({ notes: -1 })), /阅读数据/);
+    assert.throws(() => w.validateWorkspace(build({ highlights: 1.5 })), /阅读数据/);
+    w.validateWorkspace(build({ progress: '10%', notes: 0, highlights: 2, thoughts: 1, weeklySummaries: 3 }));
+  });
+  await test('validateWorkspace rejects agent runs that lose their conversation', () => {
+    const build = patch => withSpace(space => {
+      const need = w.createNeed(space, 'Run', 'independent', '');
+      space.runs.push({ id: 'run1', needId: need.id, status: 'ok', updatedAt: 1, events: [], artifacts: [], deployment: 'local', ...patch });
+    });
+    assert.throws(() => w.validateWorkspace(build({ needId: 'missing' })), /运行关联无效/);
+    assert.throws(() => w.validateWorkspace(build({ events: null })), /运行关联无效/);
+    assert.throws(() => w.validateWorkspace(build({ artifacts: null })), /运行关联无效/);
+    assert.throws(() => w.validateWorkspace(build({ updatedAt: NaN })), /运行关联无效/);
+    assert.throws(() => w.validateWorkspace(build({ status: 5 })), /运行关联无效/);
+    assert.throws(() => w.validateWorkspace(build({ deployment: 5 })), /运行关联无效/);
+    w.validateWorkspace(build({}));
+  });
+  await test('validateWorkspace rejects reminder records outside the first-release limits', () => {
+    const data = w.newWorkspace();
+    w.activeSpace(data).reminders.push({ id: 't', title: 'Read', time: '08:30', weekdays: false, reminderId: -1 });
+    assert.throws(() => w.validateWorkspace(data), /提醒记录损坏/);
+  });
+  await test('planSuggestions uses the event interval date of a timed record', () => {
+    const space = w.newSpace('local');
+    const start = new Date('2026-10-05T09:00').getTime();
+    space.records.push(
+      record({ id: 'r1', nextTodo: 'First', start, end: start + 3600000, createdAt: start }),
+      record({ id: 'r2', nextTodo: 'Second', start: start + 60000, end: start + 120000, createdAt: start + 60000 })
+    );
+    const suggestions = w.planSuggestions(space, '2026-10-07');
+    assert.deepEqual(Array.from(suggestions, item => item.key), ['record/r2', 'record/r1']);
+    assert.match(suggestions[0].reason, /新增待办/);
+  });
+  await test('connectionUrl rejects an unsupported protocol and a relative API path', () => {
+    assert.throws(() => w.connectionUrl({ ...connection(), protocol: 'ftp' }), /协议/);
+    assert.throws(() => w.connectionUrl({ ...connection(), basePath: 'api' }), /API 路径/);
+  });
+  await test('validateWorkspace rejects a link whose owner or conversation is gone', () => {
+    const owner = withSpace(space => space.links.push({ kind: 'project', ownerId: 'missing', needId: 'nope' }));
+    assert.throws(() => w.validateWorkspace(owner), /原始需求关联损坏/);
+    const need = withSpace(space => {
+      space.projects.push(project());
+      space.links.push({ kind: 'project', ownerId: 'p1', needId: 'nope' });
+    });
+    assert.throws(() => w.validateWorkspace(need), /原始需求关联损坏/);
   });
   console.log(`\n${passed} V1 workspace tests passed; platform APIs injected, not device acceptance.`);
 }

@@ -164,13 +164,28 @@ if [ -d oh_modules ] && [ -n "$(ls -A oh_modules 2>/dev/null)" ]; then
 else
   record FAIL oh-modules 'oh_modules missing or empty; run ohpm install'
 fi
-for suite in domain services workspace; do
+for suite in domain services workspace business; do
   if [ -f "scripts/test-$suite.cjs" ]; then
     record PASS "test-suite:$suite" "scripts/test-$suite.cjs"
   else
     record FAIL "test-suite:$suite" "missing scripts/test-$suite.cjs"
   fi
 done
+
+# The standards gate is the first verify.sh stage; without it the coding/logging
+# standards in docs/15 and docs/16 have no executable enforcement.
+if [ -f scripts/check-standards.cjs ] && [ -f docs/15-coding-standard.md ] && [ -f docs/16-logging-standard.md ]; then
+  rules="$("${DEVECO_NODE:-node}" scripts/check-standards.cjs --list-rules 2>/dev/null | wc -l | tr -d ' ' || echo 0)"
+  record PASS standards-gate "scripts/check-standards.cjs ($rules rules) + docs/15 + docs/16"
+else
+  record FAIL standards-gate 'standards gate or its normative docs are missing (docs/15, docs/16, scripts/check-standards.cjs)'
+fi
+
+if python3 -c 'import sys, sqlite3; assert sys.version_info >= (3, 10)' >/dev/null 2>&1; then
+  record PASS backend-runtime 'Python 3.10+ and SQLite available'
+else
+  record FAIL backend-runtime 'business service tests require Python 3.10+ with SQLite'
+fi
 
 # ---------------------------------------------------------------- signing / device
 section 'Signing and device readiness'

@@ -1,3 +1,7 @@
+import { newBusinessState, enqueueBusinessMutation, applyBusinessPage } from '../main/ets/core/BusinessSync';
+import { BusinessClient } from '../main/ets/services/BusinessClient';
+import { BusinessRepository } from '../main/ets/services/BusinessRepository';
+import { BusinessCoordinator } from '../main/ets/services/BusinessCoordinator';
 import { describe, it, expect } from '@ohos/hypium';
 import { newWorkspace, activeSpace, createNeed, linkedNeed, moveNeed, migrateLegacy, validateWorkspace,
   selectConnection, copyWorkspace, importCalendarPlans, Connection, CalendarEntry, Need, planCounts } from '../main/ets/core/Workspace';
@@ -5,6 +9,16 @@ import { initialData } from '../main/ets/core/Domain';
 
 export default function localUnitTest() {
   describe('WorkspaceV1Domain', () => {
+    it('businessSnapshotRetainsOfflineIntent', 0, () => {
+      const state = newBusinessState({ protocolVersion: 1, serverId: 'server', workspaceId: 'personal' }, 'device');
+      enqueueBusinessMutation(state, { deviceId: 'device', mutationId: 'm1', kind: 'plan', id: 'p1',
+        baseRevision: 0, deleted: false, payload: { title: 'Read' } });
+      applyBusinessPage(state, { entities: [], cursor: 0 }, true);
+      const coordinator = new BusinessCoordinator(state, new BusinessRepository(), new BusinessClient('https://example.org', 'unused'));
+      expect(coordinator.current().outbox.length).assertEqual(1);
+      expect(coordinator.current().cursor).assertEqual(0);
+    });
+
     it('aimlessNeedsKeepIndependentHistories', 0, () => {
       const space = activeSpace(newWorkspace());
       const first = createNeed(space, '', 'independent', '');

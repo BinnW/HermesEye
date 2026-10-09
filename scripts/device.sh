@@ -8,7 +8,7 @@
 # The same subcommands and flags work for the DevEco emulator and for a real device
 # reached over USB; only the signing requirement differs. The emulator image accepts
 # the unsigned debug HAPs that `verify.sh` produces. A real device verifies the
-# signature and needs a signing configuration first -- see docs/04-test-plan.md.
+# signature and needs a signing configuration first -- see docs/testing/04-test-plan.md.
 #
 # Usage:
 #   bash scripts/device.sh status                 # targets, device identity, signing readiness
@@ -30,7 +30,7 @@
 #   --domain <d>        log: hilog domain filter (this project logs on 0x0000)
 #   --tag <tag>         log: hilog tag filter (this project logs under 'testTag')
 #   --all               faults: include other processes, not just this bundle
-#   --out <dir>         evidence directory (default docs/validation/<date>-device)
+#   --out <dir>         evidence directory (default docs/testing/validation/<date>-device)
 #   --allow-any-target  proceed even when the target is not an emulator (see signing notes)
 #
 # Exit codes: 0 success, 1 the operation failed, 2 usage or environment error.
@@ -96,7 +96,7 @@ TEST_HAP="entry/build/default/outputs/ohosTest/entry-ohosTest-unsigned.hap"
 [ -n "$BUNDLE" ] || { echo 'FAIL: cannot read bundleName from AppScope/app.json5' >&2; exit 2; }
 [ -n "$TEST_MODULE" ] || TEST_MODULE='entry_test'
 
-EVIDENCE_DIR="${OUT_DIR:-docs/validation/$(date '+%Y-%m-%d')-device}"
+EVIDENCE_DIR="${OUT_DIR:-docs/testing/validation/$(date '+%Y-%m-%d')-device}"
 mkdir -p "$EVIDENCE_DIR"
 
 # Run hdc against the selected target, capturing output for the evidence bundle.

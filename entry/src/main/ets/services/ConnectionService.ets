@@ -1,3 +1,4 @@
+import { reportPlatformFailure } from './PlatformErrors';
 import { Workspace, Connection, copyWorkspace, selectConnection } from '../core/Workspace';
 import { WorkspaceRepository } from './WorkspaceRepository';
 import { CredentialStore } from './CredentialStore';
@@ -15,12 +16,12 @@ export class ConnectionService {
     input.credentialRef = reference;
     try { await this.repository.save(next); }
     catch {
-      try { await this.credentials.remove(reference); } catch { /* Unreferenced secure asset; never exposed in config. */ }
+      try { await this.credentials.remove(reference); } catch (error) { reportPlatformFailure('asset.rollbackCleanup', error as Error); }
       throw new Error('本地配置保存失败，旧配置仍有效，请重试');
     }
     const previous = current.connection;
     if (previous && previous.credentialRef && previous.credentialRef !== reference) {
-      try { await this.credentials.remove(previous.credentialRef); } catch { /* Safe to keep an unreferenced encrypted asset. */ }
+      try { await this.credentials.remove(previous.credentialRef); } catch (error) { reportPlatformFailure('asset.oldCredentialCleanup', error as Error); }
     }
     return next;
   }

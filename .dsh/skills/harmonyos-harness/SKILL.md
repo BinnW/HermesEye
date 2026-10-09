@@ -40,7 +40,7 @@ bash scripts/verify.sh --keep-going             # 失败不中断，看全部阶
 
 阶段顺序：`logic-domain` → `logic-services` → `logic-workspace` → `hap-default` → `hap-ohostest` → `hypium-local` → `hypium-result`。任一阶段失败即整体返回 1，且**默认快速失败**（后续阶段不再执行）。
 
-证据落在 `docs/validation/<日期>-<标签>/`：`results.txt`（全程摘要）、`summary.json`（阶段状态、耗时、ArkTS 告警数）、每个阶段一个 `<阶段>.log`、以及 `hypium-result.txt`。写交付结论时引用这些文件，不要只贴聊天里的输出。
+证据落在 `docs/testing/validation/<日期>-<标签>/`：`results.txt`（全程摘要）、`summary.json`（阶段状态、耗时、ArkTS 告警数）、每个阶段一个 `<阶段>.log`、以及 `hypium-result.txt`。写交付结论时引用这些文件，不要只贴聊天里的输出。
 
 `scripts/test-deveco.sh` 现在只是 `verify.sh` 的兼容别名。旧笔记里的用法仍可用，但不要在新文档里引用它。
 
@@ -87,7 +87,7 @@ bash scripts/device.sh uninstall
 | 交互式排查、配合断点 | DevEco Studio → Log 窗口 → HiLog 标签 |
 | 闪退、白屏、无响应 | `bash scripts/device.sh faults` |
 | 开始抓取之前就发生的历史日志 | 设备 `/data/log/hilog/*.gz`，用 `hdc file recv` 拉取 |
-| 编译失败、ArkTS 告警、Hypium 失败 | `docs/validation/<日期>-<标签>/` 下的 `results.txt` 与各阶段 `.log` |
+| 编译失败、ArkTS 告警、Hypium 失败 | `docs/testing/validation/<日期>-<标签>/` 下的 `results.txt` 与各阶段 `.log` |
 
 **抓应用日志必须带 `--app`。** 未过滤的 hilog 几乎全是系统与应用框架噪音——实测 8 秒内应用自身有效日志只有 9 行，其余几百行是 sceneboard、wifi、netmanager 等系统进程。`--app` 用 `pidof <bundle>` 解析进程号后按 `-P` 过滤，输出立即变得可读。
 
@@ -118,18 +118,18 @@ bash scripts/device.sh uninstall
 **改动不应增加这个数字。** 想确认自己有没有引入新告警：
 
 ```bash
-bash scripts/verify.sh --label before && cp -r docs/validation/<日期>-before /tmp/before
+bash scripts/verify.sh --label before && cp -r docs/testing/validation/<日期>-before /tmp/before
 # 改代码
 bash scripts/verify.sh --label after
 diff <(grep -o 'ArkTS:WARN File:.*' /tmp/before/hap-default.log | sort) \
-     <(grep -o 'ArkTS:WARN File:.*' docs/validation/<日期>-after/hap-default.log | sort)
+     <(grep -o 'ArkTS:WARN File:.*' docs/testing/validation/<日期>-after/hap-default.log | sort)
 ```
 
 ## 已知限制（不要重复踩）
 
 1. **CodeLinter 没有可用的无头 CLI**。`/Applications/DevEco-Studio.app/Contents/plugins/codelinter/run/index.js` 确实是一个带 `-c/-o/-f/-e` 参数的 CLI（`-v` 报 6.0.240），但实际 lint 一律失败：`{"messageType":0,"content":"Some error occurred during linting..."}` 且 `EXIT=255`，无 stderr；换作用域（单文件/目录）、去掉 `-c`、加 `-l ets` 均无改善。它是版本锁定的 IDE 插件，未公开调用约定。**因此流水线不包含 lint 阶段**；`code-linter.json5` 的规则目前只能在 DevEco Studio 里跑。可用的替代信号是 `@throws` 等 ArkTS 编译器诊断（已纳入 `verify.sh`）。
 2. **真机需要签名**。模拟器镜像是开发镜像，放宽了签名校验；真机不会。见下。
-3. **没有 CI**。所有验证都在本机手动触发，证据靠 `docs/validation/` 目录人工沉淀。
+3. **没有 CI**。所有验证都在本机手动触发，证据靠 `docs/testing/validation/` 目录人工沉淀。
 4. **`verify.sh` 的绿不等于设备绿**，反之亦然：两者覆盖的失败模式几乎不重叠。
 
 ## 真机预留接口
@@ -151,3 +151,13 @@ diff <(grep -o 'ArkTS:WARN File:.*' /tmp/before/hap-default.log | sort) \
 `scripts/lib/deveco-env.sh`（shell）与 `scripts/lib/deveco-env.cjs`（Node）是定位 DevEco 的唯一来源，两边的候选列表必须一致；`doctor.sh` 会交叉核对。`DEVECO_HOME` 覆盖两者。三套 Node 用例不再硬编码 Windows 路径，因此裸 `node scripts/test-<suite>.cjs` 在有默认安装的机器上可直接运行。
 
 **改了其中一个解析器，必须同步另一个**，否则 `doctor.sh` 的 `resolver-agreement` 会变红。
+
+
+## 2026-10-07 · 业务服务门禁补充
+
+verify 新增 `logic-business`（Node 生产客户端规则/用例层）与 `backend-service`（Python/SQLite/临时回环 HTTP）阶段，完整流程9阶段、`--skip-build`为5阶段。doctor 检查 Python 3.10+ 与 SQLite。HTTP 测试需要允许回环端口监听；Hermes 仍为注入适配器，不代表真实后端联调。服务端启动仅支持 macOS/Linux。最新 ArkTS 基线为零，使用 `--deny-arkts-warnings`。
+
+
+### 2026-10-09 · 验证证据仅本地保留
+
+用户要求 `docs/testing/validation/` 不再上传GitHub；该目录及旧路径 `docs/validation/` 由 `.gitignore` 排除。Harness仍照常生成本地证据，不删除本地结果。不要用 `git add -f` 绕过规则。提交时仅保留05/10中的验证摘要；证据链接为本地导航，不保证GitHub或新克隆中可访问。

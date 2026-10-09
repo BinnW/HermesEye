@@ -8,7 +8,10 @@ const ts = loadTypescript();
 const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/core/Domain.ts'), 'utf8');
 const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS } });
 const sandbox = { exports: {} };
-vm.runInNewContext(output.outputText, sandbox);
+// filename 让 NODE_V8_COVERAGE 能把块覆盖归到具体生产文件（scripts/coverage.cjs 依赖它）。
+vm.runInNewContext(output.outputText, sandbox, {
+  filename: path.join(__dirname, '../entry/src/main/ets/core/Domain.ts')
+});
 const d = sandbox.exports;
 let passed = 0;
 function test(name, action) { action(); passed++; console.log('PASS ' + name); }
@@ -87,5 +90,44 @@ test('storage validation rejects corruption', () => {
   assert.throws(() => d.validateData({ ...d.initialData(), notes: [null] }));
   assert.throws(() => d.validateData({ ...d.initialData(), messages: [{ role: 'system', content: 'injected' }] }));
   assert.throws(() => d.validateData({ ...d.initialData(), tasks: [{ id: '1', title: 'x', time: '25:00', weekdays: false, reminderId: 1 }] }));
+});
+test('selected calendar and device snapshots reach the shared context', () => {
+  const context = d.contextText(notes, snap, { notes: true, calendar: true, device: true }, 1001);
+  assert.ok(context.includes('private note'));
+  assert.ok(context.includes('private event'));
+  assert.ok(context.includes('battery 90%'));
+});
+test('a missing device snapshot is rejected instead of sharing an empty block', () => {
+  assert.throws(() => d.contextText(notes, { ...snap, device: '' }, { device: true }, 1001), /设备状态/);
+});
+test('storage validation rejects a non-boolean HTTP opt-in', () => {
+  const settings = { baseUrl: '', model: 'hermes-agent', allowLocalHttp: 'yes' };
+  assert.throws(() => d.validateData({ ...d.initialData(), settings }), /连接配置损坏/);
+});
+test('storage validation keeps both chat roles and rejects other content types', () => {
+  const valid = { ...d.initialData(), messages: [{ role: 'user', content: 'hello' }, { role: 'assistant', content: 'hi' }] };
+  assert.equal(d.validateData(valid).messages.length, 2);
+  assert.throws(() => d.validateData({ ...d.initialData(), messages: [null] }), /会话记录损坏/);
+  assert.throws(() => d.validateData({ ...d.initialData(), messages: [{ role: 'user', content: 7 }] }), /会话记录损坏/);
+});
+test('storage validation rejects malformed notes and keeps a valid one', () => {
+  assert.throws(() => d.validateData({ ...d.initialData(), notes: [{ id: '1', text: 'x', createdAt: 'now' }] }), /个人记录损坏/);
+  assert.throws(() => d.validateData({ ...d.initialData(), notes: [{ id: '1', text: '   ', createdAt: 1 }] }), /请先输入内容/);
+  assert.equal(d.validateData({ ...d.initialData(), notes: [{ id: '1', text: 'note', createdAt: 1 }] }).notes.length, 1);
+});
+test('storage validation rejects reminder fields outside their ranges', () => {
+  const tasks = [{ id: '1', title: 'Read', time: '08:30', weekdays: false, reminderId: -1 }];
+  assert.throws(() => d.validateData({ ...d.initialData(), tasks }), /提醒记录损坏/);
+  assert.throws(() => d.validateData({ ...d.initialData(), tasks: [{ id: '1', title: 'Read', time: '08:30', weekdays: 'yes', reminderId: 1 }] }), /提醒记录损坏/);
+});
+test('storage validation accepts a well-formed reminder record', () => {
+  const tasks = [{ id: '1', title: 'Read', time: '08:30', weekdays: true, reminderId: 0 }];
+  assert.equal(d.validateData({ ...d.initialData(), tasks }).tasks.length, 1);
+});
+test('every documented private IPv4 range is accepted for opted-in HTTP', () => {
+  ['10.0.0.1', '127.0.0.1', '192.168.1.8', '172.16.1.1', '100.64.0.1', 'localhost'].forEach(host => {
+    assert.equal(d.apiBase('http://' + host, true), 'http://' + host + '/v1');
+  });
+  ['11.0.0.1', '172.32.1.1', '100.128.0.1'].forEach(host => assert.throws(() => d.apiBase('http://' + host, true)));
 });
 console.log(`\n${passed} tests passed; production domain rules, no device APIs mocked as verified.`);

@@ -26,5 +26,10 @@
 *.cer
 *.p7b
 
-# Retain the raw device log locally; commit its lossless gzip archive.
-/docs/validation/2026-10-04-device/hilog.txt
+# Validation evidence stays local; never publish it to the repository.
+/docs/testing/validation/
+/docs/validation/
+
+# Local business service state and Python caches.
+/backend/.local/
+**/__pycache__/

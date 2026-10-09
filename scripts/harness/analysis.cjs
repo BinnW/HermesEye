@@ -19,8 +19,8 @@ function auditDocs(root) {
   const findings = [];
   const add = (severity, file, line, rule, detail) => findings.push({ severity, file, line, rule, detail });
   const required = ['AGENTS.md', 'README.md', 'docs/08-product-requirements-V1.0.md',
-    'docs/09-frontend-design-V1.0.md', 'docs/03-architecture.md', 'docs/04-test-plan.md',
-    'docs/05-release.md', 'docs/10-test_record.md', 'docs/13-harmony-harness.md'];
+    'docs/09-frontend-design-V1.0.md', 'docs/03-architecture.md', 'docs/testing/04-test-plan.md',
+    'docs/05-release.md', 'docs/testing/10-test_record.md', 'docs/testing/13-harmony-harness.md'];
   for (const file of required) {
     if (!fs.existsSync(path.join(root, file))) add('error', file, 0, 'required-document', '缺少必需文档');
   }
@@ -64,7 +64,7 @@ function auditDocs(root) {
       }
     });
     if (h1 !== 1) add('warning', file, 1, 'document-title', `一级标题数量为 ${h1}，预期 1`);
-    if (file.startsWith('docs/') && !file.startsWith('docs/validation/') && !nav.includes(`](${file})`)) {
+    if (file.startsWith('docs/') && !file.startsWith('docs/testing/validation/') && !nav.includes(`](${file})`)) {
       add('warning', file, 0, 'navigation', 'AGENTS.md 未直接链接此文档');
     }
   }

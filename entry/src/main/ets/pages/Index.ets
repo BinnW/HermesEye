@@ -1,4 +1,7 @@
-import { common, ConfigurationConstant } from '@kit.AbilityKit';
+import { BusinessPanel } from '../components/BusinessPanel';
+import { showToast, applySystemAppearance } from '../services/SystemPresentation';
+import { reportPlatformFailure } from '../services/PlatformErrors';
+import { common } from '@kit.AbilityKit';
 import { Message, Settings, Task, Snapshot, cleanText, contextText, createRequest } from '../core/Domain';
 import { Workspace, Space, Need, Project, PlanItem, ReadingItem, IntervalRecord, OwnerKind, WorkStatus,
   Connection, AgentRun, RunEvent, newWorkspace, activeSpace, copyWorkspace, createNeed, linkedNeed, moveNeed, newId,
@@ -99,18 +102,19 @@ struct Index {
   aboutToAppear(): void {
     this.load();
     this.keyboardAvoidance.start(this.context(), (visible: boolean) => { this.keyboardVisible = visible; })
-      .catch(() => { this.notice('键盘适配初始化失败，请重新打开页面', true); });
+      .catch((error: Error) => { this.notice(error.message, true); });
   }
   aboutToDisappear(): void {
-    try { this.keyboardAvoidance.stop(); } catch { /* Window may already be destroyed. */ }
+    try { this.keyboardAvoidance.stop(); } catch (error) { reportPlatformFailure('window.keyboardCleanup', error as Error); }
   }
   private context(): common.UIAbilityContext { return this.getUIContext().getHostContext() as common.UIAbilityContext; }
   private space(): Space { return activeSpace(this.data); }
   private routeKey(): string { return `${this.data.activeServer}|${this.route.startsWith('chat/') ? 'need' : this.tab}|${this.route}`; }
   private notice(message: string, failed: boolean = false): void {
     if (message === this.lastToast && Date.now() - this.lastToastAt < 1500) { return; }
-    this.lastToast = message; this.lastToastAt = Date.now();
-    this.getUIContext().getPromptAction().showToast({ message: message, duration: failed ? 5000 : 3000 });
+    if (showToast(this.getUIContext(), message, failed)) {
+      this.lastToast = message; this.lastToastAt = Date.now();
+    }
   }
   private remember(): void {
     this.offsets.set(this.routeKey(), this.scroller.currentOffset().yOffset);
@@ -129,9 +133,7 @@ struct Index {
   private switchTab(index: number): void { this.remember(); this.tab = index; this.route = ''; this.history = []; this.restore(); }
   onBackPress(): boolean { if (this.route) { this.back(); return true; } return false; }
   private applyAppearance(index: number): void {
-    const modes: ConfigurationConstant.ColorMode[] = [ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET,
-      ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT, ConfigurationConstant.ColorMode.COLOR_MODE_DARK];
-    this.context().getApplicationContext().setColorMode(modes[index]);
+    applySystemAppearance(this.context(), index);
   }
   private fillConnection(): void {
     const config = this.data.connection;
@@ -837,6 +839,7 @@ struct Index {
     this.hint(this.connectionStatus)
     this.hint('当前空间：' + this.data.activeServer)
     this.hint(this.space().lastSyncAt === null ? '尚未业务同步 · 当前为本机副本' : '最后同步：' + new Date(this.space().lastSyncAt as number).toLocaleString())
+    this.action('独立业务服务（本地预览）', () => { this.go('business'); })
     this.action('管理连接', () => { this.go('connection'); }, true)
     this.action('查看本地迁移收件箱', () => {
       this.commit((next: Workspace) => { next.activeServer = 'local'; }, '已切换到本地空间，不自动上传历史记录').then((saved: boolean) => { if (saved) { this.go('inbox'); } });
@@ -935,6 +938,7 @@ struct Index {
         else if (this.route === 'record') { this.record() }
         else if (this.route === 'inbox') { this.inbox() }
         else if (this.route === 'report') { this.report() }
+        else if (this.route === 'business') { BusinessPanel() }
         else if (this.route === 'connection') { this.connection() }
         else if (this.route === 'integrations') { this.integrations() }
         else if (this.route === 'reminders') { this.reminders() }

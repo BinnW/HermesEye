@@ -65,6 +65,32 @@ export default function abilityTest() {
       await driver.pressBack();
       await (await driver.findComponent(ON.id('main-navigation-0'))).click();
     });
+    it('businessPreviewIsReachableWithoutChangingLegacyWorkspace', 0, async () => {
+      const driver = Driver.create();
+      await (await driver.findComponent(ON.id('main-navigation-3'))).click();
+      const scroll = await driver.findComponent(ON.id('workspace-scroll'));
+      await (await scroll.scrollSearch(ON.text('独立业务服务（本地预览）'))).click();
+      await driver.delayMs(300);
+      await driver.assertComponentExist(ON.text('业务服务 · 本地预览'));
+      await driver.assertComponentExist(ON.text('连接独立业务服务'));
+      await driver.pressBack();
+      await driver.assertComponentExist(ON.id('main-navigation-3'));
+      await (await driver.findComponent(ON.id('main-navigation-0'))).click();
+    });
+    it('missingSecureCredentialFailsExplicitlyAndRemovalIsIdempotent', 0, async () => {
+      const store = new CredentialStore();
+      const alias = 'hermes-eye-absent-test-' + newId();
+      await store.remove(alias);
+      let failed = false;
+      try { await store.read(alias); }
+      catch (error) {
+        failed = true;
+        expect((error as Error).message.includes('asset.query')).assertTrue();
+        expect((error as Error).message.includes(alias)).assertFalse();
+      }
+      expect(failed).assertTrue();
+      await store.remove(alias);
+    });
     it('systemAssetPersistsAcrossStoreInstances', 0, async () => {
       const first = new CredentialStore(); const token = 'test-only-' + newId();
       const alias = await first.save(token);

@@ -1,4 +1,8 @@
 {
+  // 权威规范：docs/15-coding-standard.md、docs/16-logging-standard.md。
+  // 本文件只对 DevEco Studio 内的 CodeLinter 生效；无头 CLI 不可用
+  // （见 docs/testing/13-harmony-harness.md 已知限制），可执行门禁是
+  // `node scripts/check-standards.cjs`（verify.sh 第一阶段）。
   "files": [
     "**/*.ets"
   ],
@@ -27,6 +31,10 @@
     "@security/no-unsafe-rsa-key": "error",
     "@security/no-unsafe-dsa-key": "error",
     "@security/no-unsafe-dh-key": "error",
-    "@security/no-unsafe-3des": "error"
+    "@security/no-unsafe-3des": "error",
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-namespace": "error",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-empty-function": "warn"
   }
 }

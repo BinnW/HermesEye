@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Unified verification pipeline for the HermesEye HarmonyOS harness.
 #
-# Runs, in order: production logic suites -> HAP compile -> ohosTest HAP compile ->
-# local Hypium unit tests, and writes an evidence bundle under docs/validation/.
+# Runs, in order: coding/logging standards gate -> production logic suites ->
+# HAP compile -> ohosTest HAP compile -> local Hypium unit tests, and writes an
+# evidence bundle under docs/testing/validation/.
 # It never signs, installs, or launches anything on a device; use scripts/device.sh
 # for that. Builds here are unsigned and are compile evidence only.
 #
 # Usage:
-#   bash scripts/verify.sh                          # full pipeline, evidence under docs/validation/
+#   bash scripts/verify.sh                          # full pipeline, evidence under docs/testing/validation/
 #   bash scripts/verify.sh --label my-change        # name the evidence directory
 #   bash scripts/verify.sh --skip-build             # logic suites only (fast, seconds)
 #   bash scripts/verify.sh --no-unit-test           # skip the Hypium test task
@@ -23,7 +24,7 @@ cd "$(dirname "$0")/.."
 
 LABEL="verify"
 DATE="$(date '+%Y-%m-%d')"
-EVIDENCE_ROOT="docs/validation"
+EVIDENCE_ROOT="docs/testing/validation"
 SKIP_BUILD=0
 NO_UNIT_TEST=0
 DENY_ARKTS_WARNINGS=0
@@ -157,6 +158,14 @@ log "node:       $DEVECO_NODE ($("$DEVECO_NODE" -v 2>/dev/null))"
 log "sdk api:    $(deveco_sdk_api_version "$DEVECO_HOME" || echo unknown) (project targets $(project_compatible_sdk build-profile.json5 || echo unknown))"
 log "timeout:    ${STAGE_TIMEOUT}s per stage"
 
+# ---------------------------------------------------------------- standards gate
+should_run && run_stage standards 'coding and logging standards (scripts/check-standards.cjs)' \
+  "$DEVECO_NODE" scripts/check-standards.cjs --json "$EVIDENCE_DIR/standards.json"
+should_run && run_stage standards-self-test 'standards gate unit tests (scripts/test-standards.cjs)' \
+  "$DEVECO_NODE" scripts/test-standards.cjs
+should_run && run_stage coverage 'branch coverage floors (scripts/coverage.cjs)' \
+  "$DEVECO_NODE" scripts/coverage.cjs --json "$EVIDENCE_DIR/coverage.json"
+
 # ---------------------------------------------------------------- logic suites
 should_run && run_stage logic-domain 'production domain rules (scripts/test-domain.cjs)' \
   "$DEVECO_NODE" scripts/test-domain.cjs
@@ -164,6 +173,15 @@ should_run && run_stage logic-services 'transport and persistence adapters (scri
   "$DEVECO_NODE" scripts/test-services.cjs
 should_run && run_stage logic-workspace 'V1.0 workspace isolation, migration, secure save (scripts/test-workspace.cjs)' \
   "$DEVECO_NODE" scripts/test-workspace.cjs
+
+should_run && run_stage logic-business 'business replica and coordinator rules' \
+  "$DEVECO_NODE" scripts/test-business.cjs
+if [ -f scripts/test-ui-flows.cjs ]; then
+  should_run && run_stage logic-ui-flows 'simulated click-through business flows' \
+    "$DEVECO_NODE" scripts/test-ui-flows.cjs
+fi
+should_run && run_stage backend-service 'SQLite business service and loopback HTTP tests' \
+  python3 -m unittest discover -s backend/tests -v
 
 # ---------------------------------------------------------------- compile
 if [ "$SKIP_BUILD" -eq 0 ]; then
