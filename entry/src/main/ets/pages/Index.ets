@@ -1,3 +1,8 @@
+import { ReadingPanel } from '../components/ReadingPanel';
+import { ReadingSnapshot } from '../core/Reading';
+import { BusinessIdentity } from '../core/BusinessSync';
+import { ProjectPanel } from '../components/ProjectPanel';
+import { ProjectDraft, projectKindLabel, projectStatusLabel, projectBrief } from '../core/Workspace';
 import { BusinessPanel } from '../components/BusinessPanel';
 import { showToast, applySystemAppearance } from '../services/SystemPresentation';
 import { reportPlatformFailure } from '../services/PlatformErrors';
@@ -49,6 +54,9 @@ struct Index {
   @State showToken: boolean = false;
   @State allowHttp: boolean = false;
   @State autoConnect: boolean = false;
+  @State projectQuery: string = '';
+  @State projectFilter: string = 'active';
+  private projectPanelDrafts: Map<string, ProjectDraft> = new Map();
   @State projectName: string = '';
   @State projectGoal: string = '';
   @State managedBy: string = 'manual';
@@ -432,6 +440,23 @@ struct Index {
     finally { this.busy = false; }
   }
 
+  private projectTaskSummary(project: Project): string {
+    const tasks = this.space().plans.filter((item: PlanItem) => item.projectId === project.id && !item.calendarSource);
+    return `已完成 ${tasks.filter((item: PlanItem) => item.status === 'done').length} / ${tasks.length} 项本机任务（不含日历）`;
+  }
+  private visibleProjects(): Project[] {
+    const query = this.projectQuery.trim().toLowerCase();
+    return this.space().projects.filter((item: Project) =>
+      (this.projectFilter === 'all' || (item.status || 'active') === this.projectFilter) &&
+      (!query || (item.name + ' ' + item.goal).toLowerCase().includes(query)));
+  }
+  private discussProject(project: Project): void {
+    this.needProject = project.id;
+    this.needName = project.name.slice(0, 90) + ' · 目标推进';
+    this.needDescription = projectBrief(project);
+    this.go('new-need');
+  }
+
   @Styles
   surface() { .padding(16).width('100%').borderRadius(16).backgroundColor($r('app.color.bg_surface')).margin({ bottom: 12 }) }
   @Styles
@@ -505,8 +530,10 @@ struct Index {
   projectCard(project: Project) {
     Column({ space: 8 }) {
       this.body(project.name)
-      this.hint((project.managedBy === 'manual' ? '手工托管' : 'Agent 托管') + ' · PARA Vault 尚待接入')
-      this.hint(`已完成 ${this.space().plans.filter((item: PlanItem) => item.projectId === project.id && item.status === 'done').length} / ${this.space().plans.filter((item: PlanItem) => item.projectId === project.id).length} 项本机任务`)
+      this.hint(projectKindLabel(project.kind) + ' · ' + projectStatusLabel(project.status))
+      this.hint(project.goal)
+      this.hint((project.managedBy === 'manual' ? '手工推进' : 'Hermes 辅助推进（需确认）') + ' · 本机项目')
+      this.hint(this.projectTaskSummary(project))
       this.hint('下一步：' + (project.nextStep || '尚未填写'))
       this.link('项目详情与会话', () => { this.go('project/' + project.id); })
     }.alignItems(HorizontalAlign.Start).surface()
@@ -516,8 +543,7 @@ struct Index {
     Column({ space: 8 }) {
       this.body(book.title)
       this.hint('阅读进度：' + (book.progress === null ? '尚未获取' : book.progress))
-      this.hint(`笔记 ${book.notes === null ? '尚未获取' : book.notes} · 划线 ${book.highlights === null ? '尚未获取' : book.highlights}`)
-      this.hint(`想法 ${book.thoughts === null ? '尚未获取' : book.thoughts} · 周总结 ${book.weeklySummaries === null ? '尚未获取' : book.weeklySummaries}`)
+      this.hint('历史阅读资料 · 保留原始摘抄与总结')
       this.hint(book.source + ' · ' + new Date(book.updatedAt).toLocaleString())
       this.link('阅读详情与会话', () => { this.go('book/' + book.id); })
     }.alignItems(HorizontalAlign.Start).surface()
@@ -533,7 +559,8 @@ struct Index {
     this.link('记录进展与精力', () => { this.go('record'); })
     this.section('项目进展')
     if (!this.space().projects.length) { this.hint('还没有项目，从一个目标开始。') }
-    ForEach(this.space().projects.slice(0, 2), (project: Project) => { this.projectCard(project) }, (project: Project) => project.id)
+    ForEach(this.space().projects.filter((item: Project) => !item.status || item.status === 'active').slice(0, 2),
+      (project: Project) => { this.projectCard(project) }, (project: Project) => project.id)
     this.link('全部项目', () => { this.switchTab(1); })
     this.section('最近在读')
     if (!this.space().books.length) { this.hint('尚未获取阅读资料，微信读书 Skill 与业务同步待联调。') }
@@ -544,7 +571,22 @@ struct Index {
   projects() {
     SectionHeading({ title: '项目', subtitle: '目标、需求、任务和成果，放回同一个上下文。' })
     this.action('新建项目', () => { this.go('new-project'); }, true)
-    ForEach(this.space().projects, (project: Project) => { this.projectCard(project) }, (project: Project) => project.id)
+    TextInput({ text: this.projectQuery, placeholder: $r('app.string.project_search') }).id('project-search')
+      .constraintSize({ minHeight: 48 }).fontSize(16).fontColor($r('app.color.text_primary'))
+      .backgroundColor($r('app.color.bg_surface')).onChange((value: string) => { this.projectQuery = value; })
+    Flex({ wrap: FlexWrap.Wrap }) {
+      ForEach(['active', 'paused', 'completed', 'archived', 'all'], (status: string) => {
+        Button(status === 'all' ? $r('app.string.project_all') : projectStatusLabel(status))
+          .id('project-filter-' + status).constraintSize({ minHeight: 48 }).margin({ right: 8, top: 8 })
+          .backgroundColor(this.projectFilter === status ? $r('app.color.action_primary') : $r('app.color.selection_bg'))
+          .fontColor(this.projectFilter === status ? $r('app.color.action_on_primary') : $r('app.color.selection_text'))
+          .onClick(() => { this.projectFilter = status; })
+      }, (status: string) => status)
+    }.width('100%').margin({ bottom: 12 })
+    if (!this.visibleProjects().length) {
+      Text($r('app.string.project_empty_filter')).id('project-empty-filter').fontSize(14).fontColor($r('app.color.text_secondary'))
+    }
+    ForEach(this.visibleProjects(), (project: Project) => { this.projectCard(project) }, (project: Project) => project.id)
     this.section('独立需求')
     this.hint('没有明确目标，也可以建立独立的“漫无目的”会话。')
     ForEach(this.space().needs.filter((need: Need) => need.ownerKind === 'independent'), (need: Need) => { this.needCard(need) }, (need: Need) => need.id)
@@ -560,13 +602,12 @@ struct Index {
   }
   @Builder
   projectDetail(project: Project) {
-    SectionHeading({ title: project.name, subtitle: project.managedBy === 'manual' ? '手工托管 · PARA' : 'Agent 托管 · PARA' })
-    this.body(project.goal)
-    this.input('下一步', this.projectNextStep, (value: string) => { this.projectNextStep = value; this.projectDrafts.set(this.data.activeServer + '/' + this.route, value); })
-    this.action('保存下一步', () => { this.commit((_next: Workspace, space: Space) => {
-      const target = space.projects.find((item: Project) => item.id === project.id);
-      if (target) { target.nextStep = this.projectNextStep; }
-    }); })
+    this.link('项目持久会话与显式同步', () => { this.go('project-business/' + project.id); })
+    ProjectPanel({ project: this.selectedProject(), writable: this.ready && !this.busy, server: this.data.activeServer,
+      drafts: this.projectPanelDrafts,
+      save: (change: (space: Space) => void) => this.commit((_next: Workspace, space: Space) => { change(space); }),
+      discuss: (item: Project) => { this.discussProject(item); }
+    })
     this.section('需求会话')
     ForEach(this.space().needs.filter((need: Need) => need.ownerKind === 'project' && need.ownerId === project.id), (need: Need) => { this.needCard(need) }, (need: Need) => need.id)
     this.action('新建项目需求', () => { this.needProject = project.id; this.go('new-need'); })
@@ -580,12 +621,12 @@ struct Index {
   @State projectNextStep: string = '';
   @Builder
   newProject() {
-    SectionHeading({ title: '新建项目', subtitle: '从目标和完成标准开始。' })
-    this.input('项目名称', this.projectName, (value: string) => { this.projectName = value; })
-    this.area('目标 / 完成标准', this.projectGoal, (value: string) => { this.projectGoal = value; })
-    this.check('Agent 托管（不自动授予写入或部署权限）', this.managedBy === 'agent', (value: boolean) => { this.managedBy = value ? 'agent' : 'manual'; })
-    this.action('创建项目', () => { this.addProject(); }, true)
+    ProjectPanel({ writable: this.ready && !this.busy, server: this.data.activeServer, drafts: this.projectPanelDrafts,
+      save: (change: (space: Space) => void) => this.commit((_next: Workspace, space: Space) => { change(space); }),
+      opened: (id: string) => { this.back(); this.go('project/' + id); }
+    })
   }
+
   @Builder
   newNeed() {
     SectionHeading({ title: '发起需求', subtitle: '名称留空即为“漫无目的”，每次建立独立会话。' })
@@ -741,14 +782,18 @@ struct Index {
   }
   @Builder
   reading() {
-    SectionHeading({ title: '阅读', subtitle: '阅读位置与内容产出分开统计，不评估理解程度。' })
-    if (!this.space().books.length) {
-      this.hint('尚未获取书籍。微信读书与 IMA 服务端链路待核验，不填充示例进度。')
-      this.link('查看数据源与连接', () => { this.go('integrations'); })
-    }
+    SectionHeading({ title: '阅读', subtitle: '授权采集笔记、周期整理与逐条疑问讨论，不评估理解程度。' })
+    ReadingPanel({ initial: this.space().readingSnapshot, spaceKey: this.data.activeServer, serverId: this.space().readingServerId || '',
+      workspaceId: this.space().readingWorkspaceId || '',
+      cache: (snapshot: ReadingSnapshot, identity: BusinessIdentity, spaceKey: string) => this.commit((_next: Workspace, space: Space) => {
+        if (spaceKey !== this.data.activeServer) { throw new Error('空间已切换，禁止把旧阅读请求写入新空间'); }
+        if (space.readingServerId && (space.readingServerId !== identity.serverId || space.readingWorkspaceId !== identity.workspaceId)) {
+          throw new Error('阅读服务身份变化，禁止覆盖原副本');
+        }
+        space.readingSnapshot = snapshot; space.readingServerId = identity.serverId; space.readingWorkspaceId = identity.workspaceId;
+      }, '实际阅读结果已缓存到本机') })
+    if (this.space().books.length) { this.section('历史阅读资料') }
     ForEach(this.space().books, (book: ReadingItem) => { this.bookCard(book) }, (book: ReadingItem) => book.id)
-    this.section('整理工作流')
-    this.hint('定时整理、下次运行、总结去重口径与 IMA 写入结果尚待服务端联调。')
   }
   @Builder
   bookDetail(book: ReadingItem) {
@@ -938,6 +983,9 @@ struct Index {
         else if (this.route === 'record') { this.record() }
         else if (this.route === 'inbox') { this.inbox() }
         else if (this.route === 'report') { this.report() }
+        else if (this.route.startsWith('project-business/')) {
+          BusinessPanel({ project: this.space().projects.find((item: Project) => item.id === this.route.slice('project-business/'.length)) })
+        }
         else if (this.route === 'business') { BusinessPanel() }
         else if (this.route === 'connection') { this.connection() }
         else if (this.route === 'integrations') { this.integrations() }

@@ -33,7 +33,7 @@ async function main() {
       }, destroy() { destroyed++; }
     }; }
   };
-  const Client = load('services/HermesClient.ets', { '@kit.NetworkKit': { http }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain }) }).HermesClient;
+  const Client = load('services/HermesClient.ets', { '@kit.NetworkKit': { http }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') }) }).HermesClient;
   const client = new Client();
   const settings = { baseUrl: 'https://example.org', model: 'hermes-agent', allowLocalHttp: false };
   const request = domain.createRequest('hermes-agent', [], 'hello', '');
@@ -61,7 +61,7 @@ async function main() {
       destroy() { released++; }
     }; } };
     const Stoppable = load('services/HermesClient.ets', {
-      '@kit.NetworkKit': { http: transport }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain })
+      '@kit.NetworkKit': { http: transport }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') })
     }).HermesClient;
     const stoppedClient = new Stoppable();
     const pending = stoppedClient.chat(settings, 'temporary-token', request);
@@ -81,7 +81,7 @@ async function main() {
       destroy() { released++; rejectRequest(Error('private transport details')); }
     }; } };
     const Stoppable = load('services/HermesClient.ets', {
-      '@kit.NetworkKit': { http: transport }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain })
+      '@kit.NetworkKit': { http: transport }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') })
     }).HermesClient;
     const stoppedClient = new Stoppable();
     const pending = stoppedClient.chat(settings, 'temporary-token', request);
@@ -112,7 +112,7 @@ async function main() {
     } },
     '@kit.BasicServicesKit': { batteryInfo: {} },
     '@kit.BackgroundTasksKit': { reminderAgentManager: {} },
-    '@kit.NotificationKit': { notificationManager: {} }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain })
+    '@kit.NotificationKit': { notificationManager: {} }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') })
   });
   await test('phone calendar requests whole-calendar read permission and filters today', async () => {
     const now = Date.now();
@@ -157,7 +157,7 @@ async function main() {
     } },
     '@kit.BasicServicesKit': { batteryInfo: {} },
     '@kit.BackgroundTasksKit': { reminderAgentManager: {} },
-    '@kit.NotificationKit': { notificationManager: {} }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain })
+    '@kit.NotificationKit': { notificationManager: {} }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') })
   });
   await test('calendar entries skip events outside today and merge calendars in start order', async () => {
     const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
@@ -200,7 +200,7 @@ async function main() {
   };
   class Encoder { encodeInto(value) { return new TextEncoder().encode(value); } }
   const Repository = load('services/Repository.ets', {
-    '@kit.CoreFileKit': { fileIo }, '@kit.ArkTS': { util: { TextEncoder: Encoder } }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain })
+    '@kit.CoreFileKit': { fileIo }, '@kit.ArkTS': { util: { TextEncoder: Encoder } }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') })
   }).Repository;
   const repo = new Repository();
   await test('first load initializes empty data and Unicode survives partial writes', async () => {
@@ -278,7 +278,7 @@ async function main() {
       }, destroy() {}
     }; }
   };
-  const Checker = load('services/HermesClient.ets', { '@kit.NetworkKit': { http: checkHttp }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain }) }).HermesClient;
+  const Checker = load('services/HermesClient.ets', { '@kit.NetworkKit': { http: checkHttp }, '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') }) }).HermesClient;
   const checker = new Checker();
   await test('connection check probes the models endpoint with GET and bearer', async () => {
     await checker.check(settings, 'probe-token');
@@ -292,7 +292,7 @@ async function main() {
     await assert.rejects(() => checker.check(settings, 'probe-token'), /模型列表/);
     checkBody = '{"data":[{"id":"hermes-agent"}]}';
   });
-  const workspace = load('core/Workspace.ts', { './Domain': domain });
+  const workspace = load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') });
   const secrets = new Map();
   const asset = {
     Tag: { ALIAS: 1, SECRET: 2, ACCESSIBILITY: 3, RETURN_TYPE: 4 }, Accessibility: { DEVICE_UNLOCKED: 2 }, ReturnType: { ALL: 0 },
@@ -331,7 +331,7 @@ async function main() {
       async cancelReminder(id) { cancelledId = id; }
     } },
     '@kit.NotificationKit': { notificationManager: { async requestEnableNotification() { notificationRequests++; } } },
-    '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain })
+    '../core/Domain': domain, '../core/Workspace': load('core/Workspace.ts', { './Domain': domain, './Reading': load('core/Reading.ts') })
   });
   await test('reminder registration requests notification first and maps weekday sets', async () => {
     const id = await nativeReminders.publishReminder({}, '喝水', '08:30', true);

@@ -14,9 +14,9 @@ HermesEye is a HarmonyOS developer preview built with ArkTS, ArkUI, and the Stag
 Use DevEco Studio with the matching SDK to build and launch `entry` on a compatible emulator or device. Run commands from the repository root:
 
 - `bash scripts/doctor.sh`: environment self-check; reports the resolved DevEco install, SDK vs project target, signing and device readiness. `--json <path>` for a machine-readable report, `--strict` to fail on warnings.
-- `bash scripts/verify.sh`: the single verification entry point. Runs the coding/logging standards gate, its self-test, the branch-coverage gate, the six logic suites, compiles the debug HAP and the ohosTest HAP, then runs the local Hypium suite, and writes an evidence bundle under `docs/testing/validation/<date>-<label>/` (`results.txt`, `summary.json`, per-stage logs, `standards.json`, `coverage.json`). Use `--skip-build` for a seconds-long logic-only pass, `--deny-arkts-warnings` to fail on compiler warnings, `--label <name>` to name the evidence directory.
+- `bash scripts/verify.sh`: the single verification entry point. Runs the coding/logging standards gate, its self-test, the resource gate, the branch-coverage gate, the six logic suites, compiles the debug HAP and the ohosTest HAP, then runs the local Hypium suite, and writes an evidence bundle under `docs/testing/validation/<date>-<label>/` (`results.txt`, `summary.json`, per-stage logs, `standards.json`, `coverage.json`). Use `--skip-build` for a seconds-long logic-only pass, `--deny-arkts-warnings` to fail on compiler warnings, `--label <name>` to name the evidence directory.
 - `node scripts/check-standards.cjs`: executable coding/logging standards gate from `docs/15-coding-standard.md` and `docs/16-logging-standard.md`; `--json <path>` writes a machine-readable report, `--list-rules` prints the rule registry.
-- `node scripts/test-standards.cjs`: unit tests for the gate itself (37 fixtures/CLI cases); `node scripts/coverage.cjs` measures V8 block/line coverage and enforces the `docs/15 §8.1` floors.
+- `node scripts/test-standards.cjs`: unit tests for the gate itself (37 fixtures/CLI cases); `node scripts/test-resources.cjs` checks `$r('app.string/color.*')` references and base/dark pairing; `node scripts/coverage.cjs` measures V8 block/line coverage and enforces the `docs/15 §8.1` floors; `node scripts/python-coverage.cjs` enforces the backend Python line-coverage floors.
 - `node scripts/test-ui-flows.cjs`: simulated click-through business flows against production page handlers and core rules.
 - `node scripts/test-domain.cjs`: tests production domain rules.
 - `node scripts/test-services.cjs`: tests HTTP and persistence adapters with injected platform mocks.
@@ -80,7 +80,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 | 文档 | 用途 |
 |---|---|
 | [04 · 测试与验收计划](docs/testing/04-test-plan.md) | 测试层次与命令、用例总览、覆盖率下限、模拟点击用例、设备与端到端验收矩阵 |
-| [10 · 模拟器/真机问题记录](docs/testing/10-test_record.md) | 实测现象、根因、修复方案、回归设计与结果（问题 1–14） |
+| [10 · 模拟器/真机问题记录](docs/testing/10-test_record.md) | 实测现象、根因、修复方案、回归设计与结果（问题 1–16） |
 | [13 · 鸿蒙开发 Harness 能力清单](docs/testing/13-harmony-harness.md) | `doctor`/`verify`/`device` 能力、入口与参数、能力边界、已实现但不可达项、已知限制与维护约束 |
 | [验证证据目录](docs/testing/validation/) | 每个批次的 `results.txt`、`summary.json`、阶段日志、设备 transcript 与截图；目录存在不等于当前版本通过 |
 
@@ -92,11 +92,21 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 |---|---|
 | [11 · 每日计划需求规格与设计](docs/modules/11-daily-plan-spec.md) | 每日计划模块的需求、数据与交互规则 |
 | [12 · 每日计划开发与交付记录](docs/modules/12-daily-plan-implementation.md) | 模块实施过程、验证与交付边界 |
+| [17 · 项目需求规格与交互设计](docs/modules/17-project-spec.md) | 个人目标项目、Hermes闭环与未来远程多Agent构建规格 |
+| [18 · 项目开发与交付记录](docs/modules/18-project-implementation.md) | 项目模块实现、验证限制与后续边界 |
+| [19 · 阅读获取、整理与疑问规格](docs/modules/19-reading-spec.md) | V1 授权来源、周期、百分数进度、来源引用与操作恢复 |
+| [20 · 阅读设计与交付记录](docs/modules/20-reading-design-record.md) | 阅读范围演进、V1 实施与实际验证边界 |
+| [阅读 V1 交互原型](docs/design/reading/index.html) | 普通卡片、必要设置与明确来源提问；非私人数据或设备证据 |
+| [项目模块交互原型](docs/design/projects/index.html) | 项目列表、目标、里程碑、复盘与状态演示；非设备证据 |
 | [首页与导航草图](docs/design/V1.0/home-and-navigation.html) | 首页、项目、阅读与基本流程；早期比较选项以 09 的最终规则为准 |
 | [连接与需求会话草图](docs/design/V1.0/connection-and-needs.html) | 连接配置、需求会话及导航视觉参考 |
 | [每日计划交互设计稿](docs/design/daily-plan/index.html) | 每日计划模块的页面与交互原型 |
+| [V2.0 项目毛玻璃交互稿](docs/design/V2.0/projects-glass.html) | 项目卡片、状态菜单、需求分流与浅深色/实色评审 |
+| [项目毛玻璃列表](docs/design/V2.0/projects-glass-list.png)、[详情](docs/design/V2.0/projects-glass-detail.png)、[深色](docs/design/V2.0/projects-glass-dark.png) | 浏览器设计预览，不是设备验收证据 |
+| [V2.0 极简左右会话](docs/design/V2.0/conversations.html) | 全需求会话布局、上下文及异常状态设计；浅色/深色浏览器截图尚未提供 |
 | [V2.0 全页面卡片交互稿](docs/design/V2.0/index.html) | 24 个页面场景、详情与编辑卡片；纯设计示例 |
 | [V2.0 事项详情预览图](docs/design/V2.0/task-detail.png) | 浏览器设计截图，不是设备验收证据 |
+| [V2.0 悬浮胶囊导航预览图](docs/design/V2.0/floating-navigation.png) | 四入口保持不变的悬浮底栏视觉评审；不是设备验收证据 |
 
 ### 验证证据
 
@@ -104,6 +114,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 
 | 批次 | 结果与截图 |
 |---|---|
+| V1 项目/阅读 · 2026-10-11 | [14/14 门禁](docs/testing/validation/2026-10-11-v1-project-reading-final/results.txt)、[覆盖率](docs/testing/validation/2026-10-11-v1-project-reading-final/coverage.json)、[最终设备回归](docs/testing/validation/2026-10-11-v1-project-reading-device-final/device-test.txt)；实际结果及边界见05，仅本地证据 |
 | V1.0 基线 | [自动验证摘录](docs/testing/validation/V1.0/automated-results.txt)、[Hypium 结果](docs/testing/validation/V1.0/hypium-result.txt) |
 | 键盘修复 · 2026-10-02 | [设备测试](docs/testing/validation/keyboard-2026-10-02/device-tests.txt)、[Previewer 测试](docs/testing/validation/keyboard-2026-10-02/previewer-tests.txt)、[键盘展开截图](docs/testing/validation/keyboard-2026-10-02/keyboard-open.png)、[键盘滚动截图](docs/testing/validation/keyboard-2026-10-02/keyboard-scroll.png) |
 | 测试重设计 · 2026-10-03 | [测试结果](docs/testing/validation/test-redesign-2026-10-03/results.txt) |
@@ -116,6 +127,8 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 | 测试重构建与覆盖率 · 2026-10-07 | [最终 13/13 阶段结果](docs/testing/validation/2026-10-07-final-test-rebuild/results.txt)、[覆盖率报告](docs/testing/validation/2026-10-07-final-test-rebuild/coverage.json)（core 100%/100%，services 99.6%/99.3%）、[摘要](docs/testing/validation/2026-10-07-final-test-rebuild/summary.json) |
 | 模拟点击设备验收 · 2026-10-07 | [设备 8/8](docs/testing/validation/2026-10-07-click-flows-device/device-test.txt)（模拟器 API 26，含 U08/U09）、[问题11诊断留档](docs/testing/validation/2026-10-07-click-flows-diag3/device-test.txt) |
 | 测试文档归集 · 2026-10-07 | [归集后 13/13 阶段结果](docs/testing/validation/2026-10-07-docs-restructure/results.txt)（证据改落 `docs/testing/validation/`，链接与导航审计通过） |
+| 项目模块用例补充 · 2026-10-09 | [14/14 阶段结果](docs/testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率](docs/testing/validation/2026-10-09-project-module-tests/coverage.json)（core 100%/100%）、[设备 10/10](docs/testing/validation/2026-10-09-project-module-device/device-test.txt)（证据目录仅本地保留，不提交） |
+| 阅读/业务用例补充 · 2026-10-11 | [15/15 阶段结果](docs/testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](docs/testing/validation/2026-10-11-reading-tests/coverage.json)（core/组件 100%，services 99.6%/99.3%）、[后端覆盖 100%](docs/testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](docs/testing/validation/2026-10-11-reading-tests-device/device-test.txt)（仅本地保留） |
 
 问题8追加验证（2026-10-06）：[最终零告警结果](docs/testing/validation/2026-10-06-issue8-final/results.txt)、[摘要](docs/testing/validation/2026-10-06-issue8-final/summary.json)、[设备回归](docs/testing/validation/2026-10-06-issue8-device/device-test.txt)。迭代留档：[先行逻辑回归](docs/testing/validation/2026-10-06-issue8-logic/results.txt)、[首次编译诊断](docs/testing/validation/2026-10-06-issue8/results.txt)。实际覆盖及未测范围见 05、10。
 
@@ -145,7 +158,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 
 - [业务服务运行与协议](backend/README.md)：Python/SQLite 服务、独立凭据、回环启动、接口与限制。
 - [架构实施状态](docs/03-architecture.md#13-a2-本地实施--2026-10-07)：本地共享基础已实现与完整 V1.0 尚待接入范围。
-- `node scripts/test-business.cjs` 和 `python3 -m unittest discover -s backend/tests -v` 已纳入 `scripts/verify.sh`；规范门禁、门禁自测与覆盖率加入后完整13阶段，逻辑快速路径9阶段。Python要求3.10+，服务启动支持macOS/Linux，HTTP测试需要回环监听权限。
+- `node scripts/test-business.cjs` 和 `python3 -m unittest discover -s backend/tests -v` 已纳入 `scripts/verify.sh`；规范门禁、门禁自测、资源检查、ArkTS 覆盖率与后端覆盖率加入后完整15阶段，逻辑快速路径11阶段。Python要求3.10+，服务启动支持macOS/Linux，HTTP测试需要回环监听权限。
 
 - [业务预览交互稿](docs/design/business-preview.html)：独立副本连接、冲突、发送与恢复流程。
 - 本地架构验证：[最终结果](docs/testing/validation/2026-10-07-architecture-v1-verified/results.txt)、[摘要](docs/testing/validation/2026-10-07-architecture-v1-verified/summary.json)、[环境](docs/testing/validation/2026-10-07-architecture-v1-verified/doctor.json)。迭代：[首次诊断](docs/testing/validation/2026-10-07-architecture-v1/results.txt)、[首轮通过](docs/testing/validation/2026-10-07-architecture-v1-final/results.txt)、[存储保护回归](docs/testing/validation/2026-10-07-architecture-v1-complete/results.txt)。设备安装：[超时重试](docs/testing/validation/2026-10-07-architecture-v1-device/install-retry.txt)、[传输诊断](docs/testing/validation/2026-10-07-architecture-v1-device/transport-diagnostic.txt)、[分步安装](docs/testing/validation/2026-10-07-architecture-v1-device/manual-install.txt)。

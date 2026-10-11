@@ -6,6 +6,7 @@ import logging
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
+from reading import Reading, WeRead
 from hermes import Hermes
 from service import Service
 from store import Fault, Store, encoded
@@ -44,6 +45,24 @@ def handler(service, token):
                 path = url.path
                 if path == '/eye/v1/capabilities' and self.command == 'GET':
                     result = service.capabilities()
+                elif path.startswith('/eye/v1/reading'):
+                    reading = service.reading
+                    if reading is None:
+                        raise Fault(503, 'reading_not_configured')
+                    if path == '/eye/v1/reading' and self.command == 'GET':
+                        result = reading.list()
+                    elif path == '/eye/v1/reading/policy' and self.command == 'POST':
+                        result = reading.configure(body)
+                    elif path == '/eye/v1/reading/collect' and self.command == 'POST':
+                        if set(body) != {'cycleId'}:
+                            raise Fault(400, 'invalid_reading_cycle')
+                        result = reading.cycle(body['cycleId'])
+                    elif path == '/eye/v1/reading/questions' and self.command == 'POST':
+                        result = reading.question(body)
+                    elif path == '/eye/v1/reading/answer' and self.command == 'POST':
+                        result = reading.answer(body)
+                    else:
+                        raise Fault(404, 'not_found')
                 elif path == '/eye/v1/mutations' and self.command == 'POST':
                     result = service.store.mutate(body)
                 elif path == '/eye/v1/sync' and self.command == 'GET':
@@ -118,12 +137,16 @@ def main():
     store = Store(args.data, os.environ.get('HERMES_EYE_WORKSPACE', 'personal'))
     service = Service(store, Hermes(root, upstream_token) if root else None,
                       os.environ.get('HERMES_EYE_ENABLE_RUNS') == '1')
+    source_token = os.environ.get('WEREAD_API_KEY', '')
+    service.reading = Reading(store, service, WeRead(source_token) if source_token else None)
+    service.reading.start()
     server = ThreadingHTTPServer(('127.0.0.1', args.port), handler(service, token))
     logger.info('HermesEye 业务服务已在回环地址监听 port=%d', args.port)
     try:
         server.serve_forever()
     finally:
         server.server_close()
+        service.reading.stop()
         store.close()
         lock.close()
 

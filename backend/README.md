@@ -19,7 +19,7 @@ To test real Hermes later, set `HERMES_ROOT` to its service root (including any 
 **without `/v1`**) and `HERMES_TOKEN` to its separate server-side credential.
 Only HTTPS and loopback HTTP are accepted upstream; redirects and automatic retries are disabled.
 `HERMES_EYE_ENABLE_RUNS=1` explicitly enables standalone runs. Runs do not inherit native
-session history. Approvals, jobs, deployment and skill integrations are not exposed.
+session history. Approvals, official Hermes jobs and deployment are not exposed. The V1 reading adapter and its local timer are described below.
 
 The phone's **我的 → 独立业务服务（本地预览）** opens an isolated business replica.
 Its token is used in memory for this page only. Reopening reads the offline replica;
@@ -76,3 +76,43 @@ Live validation on 2026-10-07 subsequently passed against the configured local H
 authentication, native two-turn session history, duplicate-operation handling, and a new
 business process reopening the test ledger. See [live evidence](../docs/testing/validation/2026-10-07-hermes-live/results.txt).
 This does not cover phone connectivity, an upstream Hermes restart, runs/events or tools.
+
+## V1 projects and reading (2026-10-11)
+
+Project detail opens a project-specific business panel. Confirming an export queues its
+name/goal/management preference/next step/kind/status/criteria/target date/milestones/reviews.
+Synchronization retains CAS conflicts; it does not silently replace the local project form.
+Milestones are limited to 100 and projected reviews to 200, within the 64KiB projection
+limit. The stable `project-<id>` Need uses native Hermes sessions; the editable preview
+includes recent reviews. Old conversations are not uploaded or silently migrated.
+
+Set `WEREAD_API_KEY` only in the service environment to configure the WeRead source.
+The phone uses the distinct business credential; neither source nor Hermes secrets enter
+the reading replica. Source requests use HTTPS, skill version 1.0.4 and complete personal
+thought pagination. A source upgrade response stops the batch. No IMA write is performed.
+
+| Method/path (prefix `/eye/v1`) | Behavior |
+|---|---|
+| GET `/reading` | Books, policy, collection/organization states, source snapshots and actual question operations |
+| POST `/reading/policy` | Exact fields: enabled, bookIds, intervalHours, timezone, consent |
+| POST `/reading/collect` | cycleId; fetch all authorized books, then organize changed content using durable operations |
+| POST `/reading/questions` | id, bookId, entryId, text; optional quote must be a continuous 1–1500 character source excerpt |
+| POST `/reading/answer` | questionId, operationId, input; separate Need per question, original-operation lookup handles unknown results |
+
+Default policy is disabled and unconsented with no book IDs. The local process checks
+persisted nextAt every 30 seconds. Hours mean elapsed intervals; timezone is an IANA
+display setting, not a cron rule. Pause keeps history and does not cancel in-flight work.
+An unchanged fingerprint or an unknown operation is never automatically submitted again.
+Long notes are split with source IDs and character offsets; only full completion publishes
+a new successful organization. Missing source entries retain history. Failures retain the
+last complete source snapshot and last successful result.
+
+Preview limits: 30 books, 1–720 hour interval, 100 source pages, 2000 entries/book, 16000
+characters/entry, 500KB source JSON/book, 1MiB client response. Oversized data fails
+explicitly rather than being silently truncated. Question/input limits are 1000 characters
+each, and the final request must still fit the existing 4000-character operation contract.
+Prompts request no tool execution, but actual tool permissions remain Hermes configuration.
+
+The service still binds loopback only. Configure secure forwarding for a phone separately.
+Tests inject WeRead/Hermes sources and exercise real loopback HTTP; they do not authorize
+or verify access to actual private books. Keep source credentials and SQLite backups private.

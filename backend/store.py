@@ -74,7 +74,7 @@ class Store:
             raise Fault(400, 'invalid_mutation')
         # Sync accepts an explicit business projection, never device reminders or credentials.
         fields = {
-            'project': {'name', 'goal', 'managedBy', 'nextStep'},
+            'project': {'name', 'goal', 'managedBy', 'nextStep', 'kind', 'status', 'criteria', 'targetDate', 'milestones', 'reviews'},
             'plan': {'date', 'title', 'status', 'projectId', 'priority', 'minutes', 'note'},
             'record': {'title', 'content', 'date', 'projectId'},
             'book': {'title', 'author', 'source', 'progress'},
@@ -84,11 +84,25 @@ class Store:
         if set(payload) - fields[kind] or len(encoded(payload).encode()) > 65536:
             raise Fault(400, 'invalid_business_projection')
         for key, value in payload.items():
-            if key in ('minutes', 'progress'):
+            if kind == 'project' and key in ('milestones', 'reviews'):
+                self.project_items(key, value)
+            elif key in ('minutes', 'progress'):
                 if type(value) not in (int, float) or not 0 <= value <= (1440 if key == 'minutes' else 100):
                     raise Fault(400, 'invalid_business_value')
             elif not isinstance(value, str) or len(value) > 4000:
                 raise Fault(400, 'invalid_business_value')
+        if kind == 'project' and not deleted:
+            for field, allowed in [('kind', ('learning', 'fitness', 'effectiveness', 'software', 'other')),
+                                   ('status', ('active', 'paused', 'completed', 'archived')),
+                                   ('managedBy', ('manual', 'agent'))]:
+                if field in payload and payload[field] not in allowed:
+                    raise Fault(400, 'invalid_project_value')
+            if payload.get('targetDate'):
+                import datetime
+                try:
+                    datetime.date.fromisoformat(payload['targetDate'])
+                except ValueError:
+                    raise Fault(400, 'invalid_project_date') from None
         if kind == 'plan' and not deleted:
             import datetime
             try:
@@ -181,6 +195,36 @@ class Store:
                             (state, remote, encoded(result or {}), oid))
             self._event(oid, {'type': 'operation.status', 'state': state})
         return self.operation(oid)
+
+    @staticmethod
+    def project_items(key, items):
+        if not isinstance(items, list) or len(items) > (100 if key == 'milestones' else 200):
+            raise Fault(400, 'invalid_project_items')
+        ids = set()
+        for item in items:
+            expected = {'id', 'title', 'dueDate', 'done'} if key == 'milestones' else {'id', 'text', 'createdAt'}
+            if not isinstance(item, dict) or set(item) != expected:
+                raise Fault(400, 'invalid_project_items')
+            item_id = identifier(item['id'])
+            if item_id in ids:
+                raise Fault(400, 'duplicate_project_item')
+            ids.add(item_id)
+            content = item['title'] if key == 'milestones' else item['text']
+            if not isinstance(content, str) or not 1 <= len(content.strip()) <= (200 if key == 'milestones' else 4000):
+                raise Fault(400, 'invalid_project_items')
+            if key == 'milestones':
+                if type(item['done']) is not bool:
+                    raise Fault(400, 'invalid_project_items')
+                if not isinstance(item['dueDate'], str):
+                    raise Fault(400, 'invalid_project_date')
+                if item['dueDate']:
+                    import datetime
+                    try:
+                        datetime.date.fromisoformat(item['dueDate'])
+                    except (TypeError, ValueError):
+                        raise Fault(400, 'invalid_project_date') from None
+            elif type(item['createdAt']) not in (int, float) or not 0 < item['createdAt'] < 1e15:
+                raise Fault(400, 'invalid_project_items')
 
     def _event(self, oid, payload):
         seq = self.db.execute('SELECT COALESCE(MAX(seq),0)+1 FROM events WHERE operation=?', (oid,)).fetchone()[0]

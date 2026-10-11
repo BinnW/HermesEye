@@ -19,7 +19,7 @@ function load(relative, imports = {}) {
   return sandbox.exports;
 }
 const d = load('core/Domain.ts');
-const w = load('core/Workspace.ts', { './Domain': d });
+const w = load('core/Workspace.ts', { './Domain': d, './Reading': load('core/Reading.ts') });
 let passed = 0;
 async function test(name, action) { await action(); passed++; console.log('PASS ' + name); }
 function connection(host = 'example.org') {
@@ -52,6 +52,15 @@ function withSpace(mutate) {
   mutate(w.activeSpace(data));
   return data;
 }
+function projectDetails(overrides = {}) {
+  return { id: 'p1', name: 'Learn', goal: 'Understand', managedBy: 'manual', nextStep: '', kind: 'learning',
+    status: 'active', criteria: 'Explain it', targetDate: '2026-12-31', milestones: [], reviews: [], ...overrides };
+}
+function milestone(overrides = {}) { return { id: 'm1', title: 'Step', dueDate: '', done: false, ...overrides }; }
+function review(overrides = {}) { return { id: 'v1', text: 'Note', createdAt: 1, ...overrides }; }
+function newDraft(overrides = {}) {
+  return Object.assign(new w.ProjectDraft(), { name: 'Learn', goal: 'Understand', criteria: 'Explain it' }, overrides);
+}
 
 function sendHarness() {
   const page = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/pages/Index.ets'), 'utf8');
@@ -72,6 +81,44 @@ function sendHarness() {
   return h;
 }
 async function main() {
+  await test('reading snapshots preserve real percent units, captured question sources and legacy books', () => {
+    const reading = load('core/Reading.ts');
+    const entry = { id: 'e1', kind: 'highlight', text: 'source', location: 'chapter:1' };
+    const question = { id: 'q1', bookId: 'b1', entryId: 'e1', sourceEntry: entry,
+      origin: 'user', text: 'Why?', needId: 'question-1', interactions: [] };
+    const fixture = () => ({ books: [{ id: 'b1', title: 'Book', source: '微信读书', updatedAt: 1,
+      progress: 1, progressUnit: 'percent', sourceUpdatedAt: null, organized: '', entries: [entry], questions: [question], cycles: [] }],
+      policy: { bookIds: [], enabled: false, intervalHours: 24, timezone: 'Asia/Shanghai', consent: false }, sourceConfigured: false });
+    const valid = fixture(); assert.equal(reading.validateReadingSnapshot(valid), valid);
+    valid.books[0].progress = null; reading.validateReadingSnapshot(valid);
+    // A previously asked question keeps its own source even when the latest batch differs.
+    valid.books[0].entries = []; reading.validateReadingSnapshot(valid);
+    const workspace = richWorkspace(); w.activeSpace(workspace).readingSnapshot = valid;
+    assert.equal(w.validateWorkspace(workspace), workspace);
+    assert.equal(w.activeSpace(w.copyWorkspace(workspace)).books[0].id, 'b1');
+    for (const value of [null, {}, { books: {} }, { books: [] }, { books: [], policy: {} }]) {
+      assert.throws(() => reading.validateReadingSnapshot(value), /阅读副本/);
+    }
+    const patches = [{ id: '' }, { title: '' }, { source: '' }, { updatedAt: NaN }, { updatedAt: 0 },
+      { progress: 1.2 }, { progress: -1 }, { progress: 101 }, { progressUnit: 'fraction' }, { entries: {} },
+      { questions: {} }, { cycles: {} }, { organized: null }];
+    for (const patch of patches) {
+      const item = fixture(); Object.assign(item.books[0], patch);
+      assert.throws(() => reading.validateReadingSnapshot(item), /阅读来源/);
+    }
+    for (const patch of [{ id: '' }, { kind: 'assistant' }, { text: null }, { location: null }]) {
+      const item = fixture(); item.books[0].entries = [{ ...entry, ...patch }];
+      assert.throws(() => reading.validateReadingSnapshot(item), /笔记来源/);
+    }
+    for (const patch of [{ id: '' }, { bookId: 'other' }, { sourceEntry: null }, { entryId: 'other' },
+      { origin: 'ai' }, { needId: '' }, { text: '' }, { interactions: {} }]) {
+      const item = fixture(); item.books[0].questions = [{ ...question, ...patch }];
+      assert.throws(() => reading.validateReadingSnapshot(item), /疑问关联/);
+    }
+    const project = projectDetails({ reviews: [review({ text: 'actual review' })] });
+    assert.match(w.projectBrief(project), /actual review/);
+  });
+
   await test('production send failure keeps the attempted prompt visible with its error', async () => {
     const h = sendHarness();
     h.client = { chat: async () => { throw Error('timeout'); } };
@@ -717,6 +764,322 @@ async function main() {
       space.links.push({ kind: 'project', ownerId: 'p1', needId: 'nope' });
     });
     assert.throws(() => w.validateWorkspace(need), /原始需求关联损坏/);
+  });
+  await test('ProjectDraft starts as an empty manual learning draft', () => {
+    const draft = new w.ProjectDraft();
+    assert.equal(draft.name, ''); assert.equal(draft.goal, ''); assert.equal(draft.managedBy, 'manual');
+    assert.equal(draft.kind, 'learning'); assert.equal(draft.criteria, ''); assert.equal(draft.targetDate, '');
+    assert.equal(draft.nextStep, ''); assert.equal(draft.milestoneTitle, ''); assert.equal(draft.milestoneDate, '');
+    assert.equal(draft.review, '');
+  });
+  await test('validateProjectDetails accepts every kind and status and rejects unknown values', () => {
+    ['learning', 'fitness', 'effectiveness', 'software', 'other'].forEach(kind => w.validateProjectDetails(projectDetails({ kind })));
+    w.validateProjectDetails(projectDetails({ kind: undefined }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ kind: 'hobby' })), /项目类型或状态无效/);
+    ['active', 'paused', 'completed', 'archived'].forEach(status => w.validateProjectDetails(projectDetails({ status })));
+    w.validateProjectDetails(projectDetails({ status: undefined }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ status: 'later' })), /项目类型或状态无效/);
+  });
+  await test('validateProjectDetails bounds the completion standard and the next step', () => {
+    w.validateProjectDetails(projectDetails({ criteria: undefined, nextStep: 'x'.repeat(4000) }));
+    w.validateProjectDetails(projectDetails({ criteria: 'x'.repeat(4000) }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ criteria: 5 })), /完成标准、下一步或目标日期无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ criteria: 'x'.repeat(4001) })), /完成标准、下一步或目标日期无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ nextStep: 'x'.repeat(4001) })), /完成标准、下一步或目标日期无效/);
+  });
+  await test('validateProjectDetails allows a blank or past target date and rejects malformed ones', () => {
+    w.validateProjectDetails(projectDetails({ targetDate: undefined }));
+    w.validateProjectDetails(projectDetails({ targetDate: '' }));
+    w.validateProjectDetails(projectDetails({ targetDate: '2020-01-01' }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ targetDate: '2026-02-30' })), /完成标准、下一步或目标日期无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ targetDate: '31/12/2026' })), /完成标准、下一步或目标日期无效/);
+  });
+  await test('validateProjectDetails bounds the milestone list and every milestone', () => {
+    const many = count => Array.from({ length: count }, (_, index) => milestone({ id: 'm' + index }));
+    w.validateProjectDetails(projectDetails({ milestones: undefined }));
+    w.validateProjectDetails(projectDetails({ milestones: many(100) }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: null })), /项目里程碑格式无效或超过 100 项/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: many(101) })), /项目里程碑格式无效或超过 100 项/);
+    w.validateProjectDetails(projectDetails({ milestones: [milestone({ title: '  Step  ', dueDate: '2026-01-01' })] }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: [milestone({ title: '   ' })] })), /请先输入内容/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: [milestone({ title: 'x'.repeat(201) })] })), /200/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: [milestone({ done: 'yes' })] })), /里程碑日期或状态无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: [milestone({ dueDate: '2026-02-30' })] })), /里程碑日期或状态无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ milestones: [milestone(), milestone()] })), /重复或无效标识/);
+  });
+  await test('validateProjectDetails bounds the review list and every review', () => {
+    w.validateProjectDetails(projectDetails({ reviews: undefined }));
+    w.validateProjectDetails(projectDetails({ reviews: [review({ text: '  Note  ' })] }));
+    assert.throws(() => w.validateProjectDetails(projectDetails({ reviews: null })), /项目复盘格式无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ reviews: [review({ text: '   ' })] })), /请先输入内容/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ reviews: [review({ text: 'x'.repeat(4001) })] })), /4000/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ reviews: [review({ createdAt: 0 })] })), /复盘时间无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ reviews: [review({ createdAt: NaN })] })), /复盘时间无效/);
+    assert.throws(() => w.validateProjectDetails(projectDetails({ reviews: [review(), review()] })), /重复或无效标识/);
+  });
+  await test('projectKindLabel maps every kind and falls back to other', () => {
+    assert.equal(w.projectKindLabel('learning'), '学习成长');
+    assert.equal(w.projectKindLabel('fitness'), '健身运动');
+    assert.equal(w.projectKindLabel('effectiveness'), '效能提升');
+    assert.equal(w.projectKindLabel('software'), '软件构建');
+    assert.equal(w.projectKindLabel('other'), '其他');
+    assert.equal(w.projectKindLabel('unknown'), '其他');
+    assert.equal(w.projectKindLabel(), '其他');
+  });
+  await test('projectStatusLabel maps every status and falls back to active', () => {
+    assert.equal(w.projectStatusLabel('active'), '进行中');
+    assert.equal(w.projectStatusLabel('paused'), '已暂停');
+    assert.equal(w.projectStatusLabel('completed'), '已达成');
+    assert.equal(w.projectStatusLabel('archived'), '已归档');
+    assert.equal(w.projectStatusLabel('unknown'), '进行中');
+    assert.equal(w.projectStatusLabel(), '进行中');
+  });
+  await test('projectDraft copies editable fields without milestones or reviews', () => {
+    const empty = w.projectDraft();
+    assert.equal(empty.name, ''); assert.equal(empty.goal, ''); assert.equal(empty.managedBy, 'manual');
+    assert.equal(empty.kind, 'learning'); assert.equal(empty.criteria, ''); assert.equal(empty.targetDate, '');
+    assert.equal(empty.nextStep, '');
+    const source = projectDetails({ name: 'Ship', goal: 'Goal', managedBy: 'agent', kind: 'software', criteria: 'Done',
+      targetDate: '2026-06-30', nextStep: 'Draft', milestones: [milestone()], reviews: [review()] });
+    const copied = w.projectDraft(source);
+    assert.equal(copied.name, 'Ship'); assert.equal(copied.goal, 'Goal'); assert.equal(copied.managedBy, 'agent');
+    assert.equal(copied.kind, 'software'); assert.equal(copied.criteria, 'Done'); assert.equal(copied.targetDate, '2026-06-30');
+    assert.equal(copied.nextStep, 'Draft');
+    assert.equal('milestones' in copied, false); assert.equal('reviews' in copied, false);
+    const legacy = w.projectDraft(project());
+    assert.equal(legacy.kind, 'other'); assert.equal(legacy.criteria, ''); assert.equal(legacy.targetDate, '');
+    assert.equal(legacy.nextStep, '');
+  });
+  await test('saveProject creates a project with trimmed fields and empty lifecycle arrays', () => {
+    const data = w.newWorkspace(); const space = w.activeSpace(data);
+    const id = w.saveProject(space, '', newDraft({ name: '  Learn  ', goal: '  Understand  ', criteria: '  Explain  ',
+      targetDate: ' 2026-12-31 ', nextStep: '  Read  ', kind: 'fitness' }));
+    assert.equal(space.projects.length, 1);
+    const created = space.projects[0];
+    assert.equal(created.id, id); assert.ok(id.length > 0);
+    assert.equal(created.name, 'Learn'); assert.equal(created.goal, 'Understand'); assert.equal(created.criteria, 'Explain');
+    assert.equal(created.targetDate, '2026-12-31'); assert.equal(created.nextStep, 'Read'); assert.equal(created.kind, 'fitness');
+    assert.equal(created.managedBy, 'manual'); assert.equal(created.status, 'active');
+    assert.deepEqual(Array.from(created.milestones), []); assert.deepEqual(Array.from(created.reviews), []);
+    assert.equal(w.validateWorkspace(data), data);
+  });
+  await test('saveProject accepts an agent-managed project with a past target date', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft({ name: 'Backfill', goal: 'Goal', criteria: 'Done', targetDate: '2020-01-01', managedBy: 'agent' }));
+    assert.equal(space.projects[0].id, id); assert.equal(space.projects[0].targetDate, '2020-01-01');
+    assert.equal(space.projects[0].managedBy, 'agent');
+  });
+  await test('saveProject rejects blank, oversized or invalid required fields before writing', () => {
+    const space = w.newSpace('local');
+    assert.throws(() => w.saveProject(space, '', newDraft({ name: '   ' })), /请先输入内容/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ name: 'x'.repeat(101) })), /100/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ goal: '   ' })), /请先输入内容/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ criteria: '' })), /请先输入内容/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ managedBy: 'robot' })), /托管方式无效/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ kind: 'hobby' })), /项目类型或状态无效/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ targetDate: '2026-02-30' })), /目标日期无效/);
+    assert.throws(() => w.saveProject(space, '', newDraft({ nextStep: 'x'.repeat(4001) })), /下一步/);
+    assert.equal(space.projects.length, 0);
+  });
+  await test('saveProject updates a project in place and preserves id, status, milestones and reviews', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    const original = space.projects[0];
+    original.status = 'paused'; original.milestones = [milestone()]; original.reviews = [review()];
+    assert.equal(w.saveProject(space, id, newDraft({ name: '  Renamed  ', goal: 'Goal 2', criteria: 'Done 2',
+      kind: 'software', managedBy: 'agent', nextStep: '  Step  ' })), id);
+    assert.equal(space.projects.length, 1);
+    const updated = space.projects[0];
+    assert.equal(updated.id, id); assert.equal(updated.status, 'paused');
+    assert.equal(updated.milestones.length, 1); assert.equal(updated.reviews.length, 1);
+    assert.equal(updated.name, 'Renamed'); assert.equal(updated.goal, 'Goal 2'); assert.equal(updated.criteria, 'Done 2');
+    assert.equal(updated.kind, 'software'); assert.equal(updated.managedBy, 'agent'); assert.equal(updated.nextStep, 'Step');
+  });
+  await test('saveProject defaults an updated legacy project back to active with empty lifecycle arrays', () => {
+    const space = w.newSpace('local'); space.projects.push(project());
+    assert.equal(w.saveProject(space, 'p1', newDraft()), 'p1');
+    assert.equal(space.projects[0].status, 'active');
+    assert.deepEqual(Array.from(space.projects[0].milestones), []); assert.deepEqual(Array.from(space.projects[0].reviews), []);
+  });
+  await test('saveProject refuses an unknown id and an archived project', () => {
+    const space = w.newSpace('local');
+    assert.throws(() => w.saveProject(space, 'missing', newDraft()), /项目已不存在/);
+    const id = w.saveProject(space, '', newDraft());
+    space.projects[0].status = 'archived';
+    assert.throws(() => w.saveProject(space, id, newDraft({ name: 'Changed' })), /请先恢复已归档项目/);
+    assert.equal(space.projects[0].name, 'Learn');
+  });
+  await test('changeProjectStatus rejects unknown projects and invalid target states', () => {
+    const space = w.newSpace('local');
+    assert.throws(() => w.changeProjectStatus(space, 'missing', 'active', ''), /项目已不存在/);
+    const id = w.saveProject(space, '', newDraft());
+    assert.throws(() => w.changeProjectStatus(space, id, 'later', ''), /项目状态无效/);
+    assert.equal(space.projects[0].status, 'active');
+  });
+  await test('changeProjectStatus pauses, resumes and archives and refuses writes after archiving', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    w.changeProjectStatus(space, id, 'paused', ''); assert.equal(space.projects[0].status, 'paused');
+    w.changeProjectStatus(space, id, 'active', ''); assert.equal(space.projects[0].status, 'active');
+    w.changeProjectStatus(space, id, 'archived', ''); assert.equal(space.projects[0].status, 'archived');
+    assert.throws(() => w.changeProjectStatus(space, id, 'paused', ''), /请先恢复已归档项目/);
+    assert.throws(() => w.changeProjectStatus(space, id, 'completed', ''), /请先恢复已归档项目/);
+    w.changeProjectStatus(space, id, 'active', ''); assert.equal(space.projects[0].status, 'active');
+  });
+  await test('project lifecycle refuses unspecified transitions and duplicate completion evidence', () => {
+    const space = w.newSpace('local'); const id = w.saveProject(space, '', newDraft());
+    w.changeProjectStatus(space, id, 'active', '');
+    w.changeProjectStatus(space, id, 'paused', '');
+    assert.throws(() => w.changeProjectStatus(space, id, 'completed', 'evidence'), /请先重新推进/);
+    w.changeProjectStatus(space, id, 'active', ''); w.changeProjectStatus(space, id, 'completed', 'evidence');
+    assert.throws(() => w.changeProjectStatus(space, id, 'paused', ''), /请先重新推进/);
+    w.changeProjectStatus(space, id, 'completed', 'duplicate'); assert.equal(space.projects[0].reviews.length, 1);
+    space.projects[0].status = undefined; w.changeProjectStatus(space, id, 'paused', '');
+    assert.equal(space.projects[0].status, 'paused');
+  });
+  await test('changeProjectStatus completing records trimmed evidence in a new review', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    const before = Date.now();
+    w.changeProjectStatus(space, id, 'completed', '  passed every check  ');
+    const project = space.projects[0];
+    assert.equal(project.status, 'completed'); assert.equal(project.reviews.length, 1);
+    assert.equal(project.reviews[0].text, '目标达成依据：passed every check');
+    assert.ok(project.reviews[0].id.length > 0);
+    assert.ok(project.reviews[0].createdAt > 0 && project.reviews[0].createdAt >= before);
+    w.changeProjectStatus(space, id, 'active', '');
+    assert.equal(project.status, 'active'); assert.equal(project.reviews.length, 1);
+  });
+  await test('changeProjectStatus completing initialises a missing review list', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    space.projects[0].reviews = undefined;
+    w.changeProjectStatus(space, id, 'completed', 'evidence');
+    assert.equal(space.projects[0].reviews.length, 1);
+  });
+  await test('changeProjectStatus completing requires a standard and bounded evidence', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    space.projects[0].criteria = '   ';
+    assert.throws(() => w.changeProjectStatus(space, id, 'completed', 'evidence'), /请先填写完成标准/);
+    assert.equal(space.projects[0].status, 'active');
+    space.projects[0].criteria = undefined;
+    assert.throws(() => w.changeProjectStatus(space, id, 'completed', 'evidence'), /请先填写完成标准/);
+    space.projects[0].criteria = 'Explain it';
+    assert.throws(() => w.changeProjectStatus(space, id, 'completed', 'x'.repeat(3901)), /3900/);
+    assert.equal(space.projects[0].reviews.length, 0);
+  });
+  await test('addProjectMilestone validates the title and due date before appending', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    assert.throws(() => w.addProjectMilestone(space, 'missing', 'Step', ''), /项目已不存在/);
+    assert.throws(() => w.addProjectMilestone(space, id, '   ', ''), /请先输入内容/);
+    assert.throws(() => w.addProjectMilestone(space, id, 'x'.repeat(201), ''), /200/);
+    assert.throws(() => w.addProjectMilestone(space, id, 'Step', '2026-02-30'), /里程碑日期请填写 YYYY-MM-DD/);
+    assert.equal(space.projects[0].milestones.length, 0);
+    w.addProjectMilestone(space, id, '  Read  ', '');
+    w.addProjectMilestone(space, id, 'Ship', ' 2026-12-31 ');
+    const items = space.projects[0].milestones;
+    assert.equal(items.length, 2);
+    assert.equal(items[0].title, 'Read'); assert.equal(items[0].dueDate, ''); assert.equal(items[0].done, false);
+    assert.equal(items[1].title, 'Ship'); assert.equal(items[1].dueDate, '2026-12-31');
+    assert.notEqual(items[0].id, items[1].id);
+  });
+  await test('addProjectMilestone initialises a missing list and refuses archived or full projects', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    space.projects[0].milestones = undefined;
+    w.addProjectMilestone(space, id, 'First', '');
+    assert.equal(space.projects[0].milestones.length, 1);
+    space.projects[0].milestones = Array.from({ length: 100 }, (_, index) => milestone({ id: 'm' + index }));
+    assert.throws(() => w.addProjectMilestone(space, id, 'Overflow', ''), /最多 100 项里程碑/);
+    assert.equal(space.projects[0].milestones.length, 100);
+    space.projects[0].milestones = Array.from({ length: 99 }, (_, index) => milestone({ id: 'm' + index }));
+    w.addProjectMilestone(space, id, 'Last', '');
+    assert.equal(space.projects[0].milestones.length, 100);
+    space.projects[0].status = 'archived';
+    assert.throws(() => w.addProjectMilestone(space, id, 'Blocked', ''), /请先恢复已归档项目/);
+  });
+  await test('setProjectMilestone toggles completion and rejects missing milestones', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    assert.throws(() => w.setProjectMilestone(space, 'missing', 'm1', true), /项目已不存在/);
+    space.projects[0].milestones = undefined;
+    assert.throws(() => w.setProjectMilestone(space, id, 'm1', true), /里程碑已不存在/);
+    w.addProjectMilestone(space, id, 'Step', '');
+    const milestoneId = space.projects[0].milestones[0].id;
+    w.setProjectMilestone(space, id, milestoneId, true);
+    assert.equal(space.projects[0].milestones[0].done, true);
+    w.setProjectMilestone(space, id, milestoneId, false);
+    assert.equal(space.projects[0].milestones[0].done, false);
+    space.projects[0].status = 'archived';
+    assert.throws(() => w.setProjectMilestone(space, id, milestoneId, true), /请先恢复已归档项目/);
+  });
+  await test('addProjectReview appends trimmed text with a positive timestamp', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    const before = Date.now();
+    w.addProjectReview(space, id, '  first note  ');
+    const items = space.projects[0].reviews;
+    assert.equal(items.length, 1); assert.equal(items[0].text, 'first note');
+    assert.ok(items[0].id.length > 0); assert.ok(items[0].createdAt > 0 && items[0].createdAt >= before);
+    space.projects[0].reviews = undefined;
+    w.addProjectReview(space, id, 'after reset');
+    assert.equal(space.projects[0].reviews.length, 1); assert.equal(space.projects[0].reviews[0].text, 'after reset');
+  });
+  await test('addProjectReview rejects blank text, unknown ids, oversized text and archived projects', () => {
+    const space = w.newSpace('local');
+    const id = w.saveProject(space, '', newDraft());
+    assert.throws(() => w.addProjectReview(space, 'missing', 'note'), /项目已不存在/);
+    assert.throws(() => w.addProjectReview(space, id, '   '), /请先输入内容/);
+    assert.throws(() => w.addProjectReview(space, id, 'x'.repeat(4001)), /4000/);
+    assert.equal(space.projects[0].reviews.length, 0);
+    space.projects[0].status = 'archived';
+    assert.throws(() => w.addProjectReview(space, id, 'blocked'), /请先恢复已归档项目/);
+  });
+  await test('projectBrief states missing criteria, date, next step and milestones explicitly', () => {
+    const brief = w.projectBrief(project());
+    assert.match(brief, /项目：Learn/); assert.match(brief, /类型：其他/); assert.match(brief, /状态：进行中/);
+    assert.match(brief, /目标：Understand/); assert.match(brief, /完成标准：待明确/);
+    assert.match(brief, /目标日期：未设定/); assert.match(brief, /下一步：待讨论/);
+    assert.match(brief, /里程碑：\n尚未制定/);
+  });
+  await test('projectBrief lists milestone state and due date in order', () => {
+    const brief = w.projectBrief(projectDetails({ kind: 'software', status: 'paused', criteria: 'Reviewable',
+      targetDate: '2026-12-31', nextStep: 'Ship it',
+      milestones: [milestone({ id: 'm1', title: 'Design', dueDate: '2026-11-01', done: true }),
+        milestone({ id: 'm2', title: 'Build', dueDate: '', done: false })] }));
+    assert.match(brief, /类型：软件构建/); assert.match(brief, /状态：已暂停/);
+    assert.match(brief, /完成标准：Reviewable/); assert.match(brief, /目标日期：2026-12-31/);
+    assert.match(brief, /下一步：Ship it/);
+    assert.match(brief, /已完成：Design（2026-11-01）/); assert.match(brief, /待完成：Build/);
+    assert.ok(!brief.includes('待完成：Build（'));
+  });
+  await test('projectBrief truncates an oversized summary with an explicit marker', () => {
+    const brief = w.projectBrief(projectDetails({ goal: 'g'.repeat(4000), criteria: 'c'.repeat(4000) }));
+    assert.equal(brief.length, 3833);
+    assert.ok(brief.length <= 3900);
+    assert.ok(brief.endsWith('请编辑并补充本次需要讨论的部分。）'));
+    assert.match(brief, /此摘要已截短/);
+  });
+  await test('validateWorkspace accepts projects with the new fields and legacy projects', () => {
+    const data = w.newWorkspace(); const space = w.activeSpace(data);
+    space.projects.push(projectDetails({ milestones: [milestone({ id: 'm1', dueDate: '2026-01-01' })],
+      reviews: [review({ id: 'v1', createdAt: Date.now() })] }));
+    space.projects.push(project('legacy'));
+    assert.equal(w.validateWorkspace(data), data);
+    assert.equal(space.projects.length, 2);
+  });
+  await test('validateWorkspace rejects a project whose milestone or review identifiers repeat', () => {
+    const duplicateMilestone = w.newWorkspace();
+    w.activeSpace(duplicateMilestone).projects.push(projectDetails({ milestones: [milestone(), milestone()] }));
+    assert.throws(() => w.validateWorkspace(duplicateMilestone), /重复或无效标识/);
+    const duplicateReview = w.newWorkspace();
+    w.activeSpace(duplicateReview).projects.push(projectDetails({ reviews: [review(), review()] }));
+    assert.throws(() => w.validateWorkspace(duplicateReview), /重复或无效标识/);
+    const badKind = w.newWorkspace();
+    w.activeSpace(badKind).projects.push(projectDetails({ kind: 'hobby' }));
+    assert.throws(() => w.validateWorkspace(badKind), /项目类型或状态无效/);
   });
   console.log(`\n${passed} V1 workspace tests passed; platform APIs injected, not device acceptance.`);
 }

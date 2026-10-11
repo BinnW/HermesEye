@@ -19,7 +19,7 @@ bash scripts/device.sh     # 装到模拟器/真机跑设备用例、看日志�
 | # | 能力 | 入口 | 状态 |
 |---|---|---|---|
 | 1 | 环境自检（25 项） | `bash scripts/doctor.sh` | 可用，已实测 |
-| 2 | 构建/验证流水线（13 阶段） | `bash scripts/verify.sh` | 可用，已实测 |
+| 2 | 构建/验证流水线（15 阶段） | `bash scripts/verify.sh` | 可用，已实测 |
 | 3 | 设备闭环（7 子命令） | `bash scripts/device.sh` | 可用，模拟器已实测；真机未验证 |
 | 4 | 跨运行时工具链解析 | `scripts/lib/deveco-env.{sh,cjs}` | 可用，已实测 |
 | 5 | 测试资产（新增业务客户端/服务端） | 见 §5 | 可用，已实测 |
@@ -72,12 +72,13 @@ bash scripts/verify.sh --timeout 1800           # 单阶段超时（默认 900 �
 其余参数：`--date <YYYY-MM-DD>`、`--out <dir>`、`--no-unit-test`。
 退出码：`0` 全部执行到的阶段通过 / `1` 有阶段失败 / `2` 环境不可用。
 
-**13 个阶段**（默认快速失败）：
+**15 个阶段**（默认快速失败）：
 
 | 阶段 | 内容 |
 |---|---|
 | `standards` | `node scripts/check-standards.cjs`：docs/15 编码规范 + docs/16 日志规范的机检门禁，同时写出 `standards.json` |
 | `standards-self-test` | `node scripts/test-standards.cjs`：门禁自身的用例（每条规则一个 fixture + CLI 分支） |
+| `resources` | `node scripts/test-resources.cjs`：`$r('app.string/color.*')` 引用存在性、颜色 base/dark 成对与资源重名 |
 | `coverage` | `node scripts/coverage.cjs`：V8 块/行覆盖，按下限拦截并写出 `coverage.json` |
 | `logic-domain` | `scripts/test-domain.cjs` |
 | `logic-services` | `scripts/test-services.cjs` |
@@ -85,6 +86,7 @@ bash scripts/verify.sh --timeout 1800           # 单阶段超时（默认 900 �
 | `logic-business` | `scripts/test-business.cjs` |
 | `logic-ui-flows` | `scripts/test-ui-flows.cjs`（模拟点击业务流程；文件存在才执行） |
 | `backend-service` | `python3 -m unittest discover -s backend/tests -v` |
+| `backend-coverage` | `node scripts/python-coverage.cjs`：后端行覆盖门禁（`sys.settrace` + `dis` 可执行行口径，登记不可达入口） |
 | `hap-default` | 编译 `entry@default` debug HAP |
 | `hap-ohostest` | 编译 `entry@ohosTest` HAP |
 | `hypium-local` | 跑本地 Hypium 单元测试 |
@@ -146,15 +148,16 @@ bash scripts/device.sh uninstall
 
 DevEco 内置模拟器镜像放宽了签名校验，**接受 `verify.sh` 产出的未签名 HAP**；**真机不会**，必须签名。接入真机不需要改脚本，只需在 DevEco 生成签名配置（File → Project Structure → Signing Configs，需华为开发者账号）并把 `signingConfigs` 块写进 `build-profile.json5`，然后重新 `verify.sh`。`doctor.sh` 会由 WARN 转为 PASS。签名材料受 `.gitignore` 保护。
 
-## 5. 测试资产（267 个自动用例）
+## 5. 测试资产（262 个自动用例 + 524 条资源断言）
 
 | 层 | 位置 | 数量 | 依赖 | 命令 |
 |---|---|---|---|---|
 | 规范门禁自测 | `scripts/test-standards.cjs` | **37** | 仅 DevEco 自带 Node | `verify.sh` |
-| 生产逻辑 | `scripts/test-*.cjs` | **183**（domain 23 / services 45 / workspace 79 / business 30 / ui-flows 6） | 仅 DevEco 自带 Node + TypeScript | `verify.sh --skip-build` |
-| 服务端 | `backend/tests/test_service.py` | **12** | Python 3.10+ / SQLite / 回环端口 | `verify.sh` |
+| 资源完整性 | `scripts/test-resources.cjs` | **524 条断言** | 仅 DevEco 自带 Node | `verify.sh` |
+| 生产逻辑 | `scripts/test-*.cjs` | **226**（domain 23 / services 45 / workspace 111 / business 31 / ui-flows 16） | 仅 DevEco 自带 Node + TypeScript | `verify.sh --skip-build` |
+| 服务端 | `backend/tests/*.py` | **77** | Python 3.10+ / SQLite / 回环端口 | `verify.sh` |
 | 本地 Hypium | `entry/src/test/LocalUnit.test.ets` | **10** | 本地 ArkTS 运行时 | `verify.sh` |
-| 设备 Hypium | `entry/src/ohosTest/ets/test/Ability.test.ets`、`Flow.test.ets` | **8** | 模拟器/真机，含真实 Asset Store 与模拟点击 | `device.sh test` |
+| 设备 Hypium | `entry/src/ohosTest/ets/test/Ability.test.ets`、`Flow.test.ets`、`ProjectFlow.test.ets`、`ReadingFlow.test.ets` | **12** | 模拟器/真机，含真实 Asset Store 与模拟点击 | `device.sh test` |
 
 Node 用例把生产源码在内存中转译后在 Node VM 里执行并断言，**无需设备、无需网络**。这也是为什么平台 API 必须留在 `services/`——写进 `core/` 会直接让这些用例失败。`test-ui-flows.cjs` 用文本切片抽取 `Index.ets` 的交互方法，把点击建模为轨迹后断言状态与持久化结果。
 

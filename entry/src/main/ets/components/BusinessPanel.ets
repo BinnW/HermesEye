@@ -1,13 +1,14 @@
 import { common } from '@kit.AbilityKit';
 import { BusinessState, BusinessEntity, BusinessMutation, BusinessConflict, BusinessPending,
   newBusinessState, assertBusinessIdentity } from '../core/BusinessSync';
-import { newId, dayKey } from '../core/Workspace';
+import { Project, newId, dayKey, projectBrief } from '../core/Workspace';
 import { BusinessClient } from '../services/BusinessClient';
 import { BusinessCoordinator } from '../services/BusinessCoordinator';
 import { BusinessRepository } from '../services/BusinessRepository';
 
 @Component
 export struct BusinessPanel {
+  project: Project | undefined = undefined;
   @State root: string = '';
   @State token: string = '';
   @State allowHttp: boolean = false;
@@ -21,7 +22,10 @@ export struct BusinessPanel {
   @State replica: BusinessState = newBusinessState({ protocolVersion: 1, serverId: 'unbound', workspaceId: 'unbound' }, 'unbound');
   private coordinator: BusinessCoordinator | undefined = undefined;
 
-  aboutToAppear(): void { this.loadOffline(); }
+  aboutToAppear(): void {
+    if (this.project) { this.needId = 'project-' + this.project.id; this.prompt = projectBrief(this.project); }
+    this.loadOffline();
+  }
   private async loadOffline(): Promise<void> {
     this.busy = true;
     try {
@@ -65,6 +69,16 @@ export struct BusinessPanel {
       baseRevision: 0, deleted: false, payload: { title: this.title.trim(), date: dayKey(new Date()), status: 'todo', projectId: '' } });
     this.title = '';
   }
+  private async exportProject(coordinator: BusinessCoordinator): Promise<void> {
+    const project = this.project;
+    if (!project) { throw new Error('项目已不存在'); }
+    const confirmed = this.replica.entities.find((item: BusinessEntity) => item.kind === 'project' && item.id === project.id);
+    await coordinator.edit({ deviceId: this.replica.deviceId, mutationId: newId(), kind: 'project', id: project.id,
+      baseRevision: confirmed?.revision || 0, deleted: false, payload: { name: project.name, goal: project.goal,
+        managedBy: project.managedBy, nextStep: project.nextStep, kind: project.kind || 'other',
+        status: project.status || 'active', criteria: project.criteria || '', targetDate: project.targetDate || '',
+        milestones: project.milestones || [], reviews: project.reviews || [] } });
+  }
   private async deletePlan(coordinator: BusinessCoordinator, entity: BusinessEntity): Promise<void> {
     await coordinator.edit({ deviceId: this.replica.deviceId, mutationId: newId(), kind: entity.kind, id: entity.id,
       baseRevision: entity.revision, deleted: true, payload: {} });
@@ -78,7 +92,7 @@ export struct BusinessPanel {
   }
   build() {
     Column({ space: 12 }) {
-      Text('业务服务 · 本地预览').fontSize(24).fontWeight(FontWeight.Bold)
+      Text(this.project ? '项目 · 持久业务会话' : '业务服务 · 本地预览').fontSize(24).fontWeight(FontWeight.Bold)
       Text(this.status).fontSize(14)
       if (!this.connected) {
         TextInput({ placeholder: '独立业务服务根地址（不含 /v1）', text: this.root }).onChange((value: string) => { this.root = value; })
@@ -95,9 +109,15 @@ export struct BusinessPanel {
         Button('同步业务副本').enabled(!this.busy).onClick(() => { this.act(async (c: BusinessCoordinator) => { await c.synchronize(); }); })
         Button('重建已确认副本（保留待确认编辑）').enabled(!this.busy)
           .onClick(() => { this.act(async (c: BusinessCoordinator) => { await c.synchronize(true); }); })
-        TextInput({ placeholder: '新增今日计划', text: this.title }).onChange((value: string) => { this.title = value; })
-        Button('保存到待同步列表').enabled(!this.busy).onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.createPlan(c); }); })
-        ForEach(this.replica.entities.filter((item: BusinessEntity) => !item.deleted), (entity: BusinessEntity) => {
+        if (this.project) {
+          Text('项目目标、完成标准、里程碑与复盘由你确认后才上传；不会同步日历、凭据或旧会话。').fontSize(14)
+          Button('确认将当前项目加入待同步列表').enabled(!this.busy && this.connected)
+            .onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.exportProject(c); }); })
+        } else {
+          TextInput({ placeholder: '新增今日计划', text: this.title }).onChange((value: string) => { this.title = value; })
+          Button('保存到待同步列表').enabled(!this.busy).onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.createPlan(c); }); })
+        }
+        ForEach(this.replica.entities.filter((item: BusinessEntity) => !item.deleted && (!this.project || (item.kind === 'project' && item.id === this.project.id))), (entity: BusinessEntity) => {
           Text(entity.kind + ' · ' + (entity.payload.title || entity.payload.name || entity.id) + ' · r' + entity.revision)
           if (entity.kind === 'plan') {
             Button('删除此计划').enabled(!this.busy).onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.deletePlan(c, entity); }); })
@@ -116,10 +136,13 @@ export struct BusinessPanel {
           })
         }, (conflict: BusinessConflict) => conflict.local.mutationId)
         Text('持久会话 · 只发送本次输入，旧历史不会上传').fontSize(18)
-        TextInput({ placeholder: '会话标识，例如 study-harmony', text: this.needId }).onChange((value: string) => { this.needId = value; })
+        if (this.project) { Text('会话：' + this.needId + ' · 仅本次预览文本会分享给 Hermes') }
+        else {
+          TextInput({ placeholder: '会话标识，例如 study-harmony', text: this.needId }).onChange((value: string) => { this.needId = value; })
+        }
         TextArea({ placeholder: '发送给 Hermes 的消息', text: this.prompt }).onChange((value: string) => { this.prompt = value; })
-        Button('保存意图并发送').enabled(!this.busy).onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.send(c); }); })
-        ForEach(this.replica.operations, (pending: BusinessPending) => {
+        Button('保存意图并发送').enabled(!this.busy && this.connected).onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.send(c); }); })
+        ForEach(this.replica.operations.filter((pending: BusinessPending) => !this.project || pending.intent.needId === this.needId), (pending: BusinessPending) => {
           Text(pending.intent.needId + ' · ' + (pending.operation?.state || '结果未知，请查询'))
           Text(pending.operation?.result.message || pending.operation?.result.output || '')
           Button('查询原操作').enabled(!this.busy).onClick(() => {

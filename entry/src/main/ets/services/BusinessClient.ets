@@ -1,3 +1,4 @@
+import { ReadingSnapshot, ReadingPolicy, ReadingQuestion, ReadingQuestionRequest, ReadingAnswerRequest, ReadingCollectRequest } from '../core/Reading';
 import { http } from '@kit.NetworkKit';
 import { apiBase } from '../core/Domain';
 import { BusinessIdentity, BusinessMutation, BusinessReceipt, BusinessPage, BusinessIntent, BusinessOperation } from '../core/BusinessSync';
@@ -41,4 +42,18 @@ export class BusinessClient implements BusinessTransport {
   async query(operationId: string): Promise<BusinessOperation> {
     return JSON.parse(await this.request('/operations/' + encodeURIComponent(operationId))) as BusinessOperation;
   }
+  async reading(): Promise<ReadingSnapshot> { return JSON.parse(await this.request('/reading')) as ReadingSnapshot; }
+  async readingPolicy(policy: ReadingPolicy): Promise<ReadingPolicy> {
+    return JSON.parse(await this.request('/reading/policy', JSON.stringify(policy))) as ReadingPolicy;
+  }
+  async collectReading(request: ReadingCollectRequest): Promise<ReadingSnapshot> {
+    return JSON.parse(await this.request('/reading/collect', JSON.stringify(request))) as ReadingSnapshot;
+  }
+  async readingQuestion(request: ReadingQuestionRequest): Promise<ReadingQuestion> {
+    return JSON.parse(await this.request('/reading/questions', JSON.stringify(request))) as ReadingQuestion;
+  }
+  async readingAnswer(request: ReadingAnswerRequest): Promise<BusinessOperation> {
+    return JSON.parse(await this.request('/reading/answer', JSON.stringify(request))) as BusinessOperation;
+  }
+
 }

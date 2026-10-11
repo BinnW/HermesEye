@@ -435,3 +435,107 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 ### 另记（非违规）
 
 编辑页的校验失败只有 Toast，`notice` 的 1.5 秒去重会让"同一非法保存连点两次"的第二次没有新提示；列表页有就地日期错误提示而编辑页没有。规格 11 §5.3 允许 Toast，故不判定为违规，但可作为编辑页就地校验的改进项。
+
+## 2026-10-09 · 项目模块构建与验证记录（非设备验收）
+
+本轮新增个人目标项目管理，设计和实现范围见[17](../modules/17-project-spec.md)、[18](../modules/18-project-implementation.md)。编译中发现ProjectPanel的`key()`与ArkUI基类同名，已改为`draftKey()`；摘要返回值修正后主包/测试包均通过。针对输入控件初始化文本可能不随草稿清空的问题，新组件仅在保存成功后重建相应字段，未修改问题11的旧每日计划实现，也不将其标记为已解决。
+
+最终批次`2026-10-09-project-module-delivery`：12/13阶段通过；规范0 error/13 warning，既有逻辑与后端通过，两个HAP及本地Hypium零ArkTS告警，Hypium10/10。唯一未通过项为coverage（core行80.5%、块94%），新项目规则分支缺少用例。遵循用户本轮不新增测试用例的明确要求，没有调整测试或下限。
+
+首轮后端回环监听受沙箱限制，Previewer卡住后手动终止；沙箱外最终同轮全部对应阶段通过，早期历史hypium-result不作证据。没有连接设备；新项目交互、主题/键盘/可访问性和真实Hermes未验收。浏览器拒绝file协议，原型未完成视觉核验，不尝试其他方式绕过。证据：[最终结果](validation/2026-10-09-project-module-delivery/results.txt)、[摘要](validation/2026-10-09-project-module-delivery/summary.json)。
+
+## 问题15：项目模块补充用例时发现的实现与设备层限制（2026-10-09）
+
+本轮为工作区新增的项目模块补了 30 条核心单测、2 条 Node 流程用例、1 套资源完整性用例与 2 条设备用例；过程中发现一处实现与规格不一致、一处设备层测试限制，另修正了一处因界面重构而失效的旧设备用例。
+
+### 15.1 中 · 状态机放行了规格状态图中不存在的转移
+
+- 位置：`entry/src/main/ets/core/Workspace.ts:431`（`changeProjectStatus`）。
+- 期望：`docs/modules/17-project-spec.md` §5.4 状态图只定义 active↔paused、active/paused/completed→archived、archived→active、active→completed（需完成标准 + 依据）。
+- 实际：代码只拦截 `archived → 非 active`，因此 `paused → completed` 与 `completed → paused` 都被放行。
+- 最小复现（Node 注入）：`saveProject(...)` → `changeProjectStatus(space, id, 'paused', '')` → `changeProjectStatus(space, id, 'completed', '依据')` 成功；再 `changeProjectStatus(space, id, 'paused', '')` 也成功。
+- 影响：暂停中的目标可以未经"重新推进"直接声明达成，达成后也可以直接退回暂停，与 §5.4 与 §3.1（`completed` 是用户声明的达成）不一致，界面上的状态按钮组合也会出现规格未定义路径。
+- 状态：**已记录，未修改生产代码**。用例按当前实现断言语义（暂停/恢复/达成/归档各自可达），未把未定义转移写成期望行为。
+
+### 15.2 低 · 缺完成标准时报错文案不是项目域语义
+
+- 位置：`core/Workspace.ts:433` 的 `cleanText(project.criteria || '')`。
+- 规格 §5.4 要求转 `completed` 时"有完成标准"，§7 又允许旧项目暂缺标准。
+- 实际：旧项目（无 criteria）转达成时抛出 Domain 通用文案「请先输入内容」，用户无法知道要补的是完成标准。
+- 状态：已记录，未修改；建议改为「请先填写完成标准」这类项目域文案。
+
+### 15.3 设备层无法稳定覆盖表单中段字段（测试限制，非产品缺陷）
+
+- 现象：`ProjectFlow.test.ets` 早期版本在模拟器上向 `project-goal`/`project-criteria` 输入时，TestKit 的 `Component.scrollSearch` 会长时间阻塞（两次 60 秒超时），超时残留的调用还会让下一条用例报 `uitest-api does not allow calling concurrently`。改用 `inputText(text, { paste: true })` 绕开软键盘后仍复现，说明瓶颈在滚动检索而不只是 IME。
+- 处置：设备用例改为只读（检索/筛选/空态、新建表单渲染、返回不落盘），完整"新建→里程碑→复盘→归档"链路由 Node 层 F08 覆盖；限制与取舍写入 [04 测试计划](04-test-plan.md) 的「设备层取舍」。
+- 状态：限制已记录；若后续需要设备级落盘证据，建议先在 `device.sh` 增加"关闭软键盘后执行"的能力或改用坐标稳定的短表单，再补用例。
+
+### 15.4 已修复 · 键盘回归用例断在旧表单 id
+
+- `Ability.test.ets` 的键盘用例原先依赖 `input-项目名称`、`input-目标 / 完成标准` 与文本「创建项目」。项目页改为 `ProjectPanel` 后这些 id/文案不再存在，设备回归报 `Cannot read property click of null`。
+- 已更新为 `project-name`、`project-goal`、`project-save`；修复后该用例与项目用例在模拟器上 **10/10 通过**。证据：[设备结果](validation/2026-10-09-project-module-device/device-test.txt)。
+
+### 问题15 · 2026-10-11 V1 修复更新
+
+15.1 与 15.2 本轮已修复：changeProjectStatus 拒绝 paused→completed / completed→paused，须先恢复 active；重复 completed 不追加第二条依据。缺完成标准使用项目语义提示。新增核心拒绝路径，F08 按界面先恢复暂停项目再达成；状态图仍以 17 §5.4 为准。15.3 的设备中段滚动测试限制继续保留。实际回归结果统一见 05 的本轮记录，不将 Node 结果替代真实设备落盘。
+
+## 问题16：V1 阅读接入过程的构建与授权范围校验（2026-10-11）
+
+- 现象：首轮 DevEco 编译失败，ReadingPanel 的 enabled 布尔字段覆盖 ArkUI CustomComponent.enabled 方法。
+- 原因与修复：组件状态字段改为 scheduleEnabled，线协议的 policy.enabled 保持原含义；补齐生产资源引用及本地/设备用例。
+- 授权范围回归：采集动作改为先保存当前可见范围、同意和周期，再请求采集，避免用户修改表单后仍执行旧服务端范围。F09 模拟修改范围并验证请求顺序及实际参数。
+- 失败语义：持久记录 collecting/collected/failed/unknown；来源失败保留上次完整副本，整理未知不重发。长笔记提问须明确原始引用，拒绝来源之外的文字。
+- 未验收：真实微信读书来源、家庭部署、手机业务网络与长时间周期；实际构建/模拟器结果见 05。本轮不实施 V2。
+
+本轮最终结果：问题15/16相关自动回归及完整 Harness **14/14** 通过，零 ArkTS 告警；最终制品模拟器 **11/11** 通过。证据见05，问题15.3的完整表单设备测试限制及真实来源待验收范围保留。
+
+## 问题16：阅读/业务模块补用例时发现的实现问题（2026-10-11）
+
+本轮为阅读模块与业务面板补齐组件流程用例（F11–F16）、后端用例（37→77）并新增后端行覆盖门禁（5 个模块 100%）。过程中发现以下实现与规格不一致，**均未修改生产代码**。
+
+### 16.1 高 · 失败周期在元数据校验前就发布了新副本
+
+- 位置：`backend/reading.py:188`（写回 `reading_books`）早于 `:193`（`parts()` 的元数据校验）。
+- 规格：`docs/modules/19-reading-spec.md:17`「范围内全部来源成功后才发布新副本；失败保留上次副本」。
+- 复现：先采集 `highlight-1`；再把来源换成 `{'id':'highlight-2','text':'new','location':'L'*4000}` 并 `cycle('c2')` → `cycle` 抛 `413 reading_metadata_limit`，但 `reading_books` 已含 `['highlight-1','highlight-2']`，且该 collection 记录为 `collected`（`error=reading_metadata_limit`）。上次成功副本已被替换。
+- 影响：违反"失败保留上次副本"，用户会看到一次失败采集把成功结果覆盖成大杂烩。
+- 处置建议：把 `parts()` 的元数据预校验（以及对合并后条目的容量复核）前移到发布之前，失败时整体回滚。
+
+### 16.2 中 · 2000 条/500KB 容量边界只校验本次入参
+
+- 位置：`backend/reading.py:172-177` 只校验 `snapshot['entries']`；`:185` 会把历史条目并回，之后不再复核。
+- 规格：`19-reading-spec.md:35`「每书最多 2000 条、单条 16000 字、序列化不超过 500KB；超过边界显式失败」。
+- 复现：先采集 2000 条 `a*`，再采集 2000 条 `b*` → 落库 `len(entries)=4000`（约 270KB），无报错。
+- 影响：容量契约只在单次入参层面成立，长期累积可突破上限，后续整理/分页会放大成本。
+
+### 16.3 中 · `Reading.start()` 不幂等，`stop()` 后无法重启
+
+- 位置：`backend/reading.py:324-329`（每次调用都新建线程并覆盖 `self.worker`）；`stop_event` 在 `stop()` 后未清除。
+- 规格：`19-reading-spec.md:27`「本地业务进程是本模块唯一周期执行者」。
+- 复现：`start(); first=worker; start(); second=worker` → 两个线程同时存活；`stop()` 后两个线程退出，但再次 `start()` 的新 worker 立即退出（事件仍为 set），周期无法恢复。
+- 影响：限于线程生命周期与"单一执行者"语义；`tick` 的 `nextAt` 在锁内原子推进，双 worker 不会重复提交 Hermes（已用例锁定）。
+
+### 16.4 中 · 阅读周期 1–720 未在客户端校验
+
+- 位置：`entry/src/main/ets/components/ReadingPanel.ets:80`。
+- 规格：`19-reading-spec.md` §3「周期 1–720 小时」。
+- 实际：`Number(this.interval)` 原样 POST，`0`/`721`/`NaN` 由服务端 `backend/reading.py:116-118` 以 400 拒绝；用户在本地看不到即时错误。用例 `bounds=[0,1,720,721,NaN]` 记录了该行为。
+
+### 16.5 中 · 未勾选同意时「一键采集/整理」未禁用
+
+- 位置：`ReadingPanel.ets:198` + `:105-109`（`action()` 的 enabled 只看 `!busy && connected`）。
+- 规格：`19-reading-spec.md` §3/§4 要求同意后才采集。
+- 复现：`connected=true`、`consent=false` 时调用 `collect` → 仍发出 `policy(consent:false)` + `collect` 两条请求并显示成功文案，最终由服务端 409 拒绝。
+
+### 16.6 低 · 提问片段未校验属于选中原文
+
+- 位置：`ReadingPanel.ets:91`；规格 `19-reading-spec.md` §5「来源片段必须属于选中原文」。
+- 复现：`selectedEntry='e1'`、`quote='完全不同的一段话'` → 正常提交（选择条目会预填原文，但输入框可改）。
+
+### 16.7 低 · 业务面板「仅已连接可用」只有 UI 层门控
+
+- 位置：`BusinessPanel.ets:114,144` —— 门控只由 `build()` 的 `.enabled()` 承担，方法层无守卫，VM 无法执行 `build()`，因此该门控只能由设备/Previewer 验证（用例直接驱动方法，未伪造按钮状态）。
+
+### 说明
+
+F11–F16 与后端 40 条新用例把这些行为都**如实断言**（包括上述偏差的当前表现），未用"应当通过"的断言掩盖差异；修复方案待确认后再改代码与断言。

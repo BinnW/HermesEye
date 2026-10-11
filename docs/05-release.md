@@ -266,3 +266,77 @@ bash scripts/test-deveco.sh
 - 设备实测仅在 DevEco 内置模拟器（API 26）完成，真机、权限授予、提醒、真实日历、真实 Hermes 与真实业务服务仍未验收。
 
 证据：[13/13 结果](testing/validation/2026-10-07-test-rebuild/results.txt)、[覆盖率报告](testing/validation/2026-10-07-test-rebuild/coverage.json)、[规范报告](testing/validation/2026-10-07-test-rebuild/standards.json)、[摘要](testing/validation/2026-10-07-test-rebuild/summary.json)、[设备 8/8](testing/validation/2026-10-07-click-flows-device/device-test.txt)、[问题11诊断](testing/validation/2026-10-07-click-flows-diag3/device-test.txt)。
+
+## 2026-10-09 · 项目模块本机实现
+
+交付[项目规格](modules/17-project-spec.md)、[交互原型](design/projects/index.html)和[开发记录](modules/18-project-implementation.md)。新增项目类型、目标/完成标准、目标日期、下一步、检索/状态筛选、里程碑、追加复盘、达成依据与可恢复归档，复用任务与需求会话；Hermes入口先准备可编辑的项目摘要，不自动发送。未来多Agent构建、审批、执行恢复与部署形成规格，未接入真实执行端。
+
+最终verify（`project-module-delivery`）**12/13，整体FAIL**：既有逻辑与后端检查通过，主HAP/ohosTest HAP编译通过，ArkTS零告警，本地Hypium10/10。规范门禁0 error/13 warning；唯一失败为coverage，core行80.5%/块94%，低于100%要求。用户明确要求本轮不新增测试用例，未改测试文件或降低阈值。不能宣称完整门禁通过或新增项目功能已经端到端验收。
+
+无设备安装/实测，无真实Hermes、项目远端同步、multi-agent构建或部署验收；HTML因浏览器file协议策略未完成视觉核验，仅语法检查。证据[摘要](testing/validation/2026-10-09-project-module-delivery/summary.json)仅本地保留。
+
+## 2026-10-09 · 项目模块用例补充与覆盖率恢复
+
+工作区新增项目模块后，按改动补齐三层自动化用例，`coverage` 门禁从失败恢复为全绿。
+
+- Node 单元：`scripts/test-workspace.cjs` 新增 30 条（79→109），覆盖 `ProjectDraft`、`validateProjectDetails`、`saveProject`、`changeProjectStatus`、`addProjectMilestone`/`setProjectMilestone`、`addProjectReview`、`projectBrief`、`validateWorkspace` 的全部正常与拒绝分支。
+- Node 流程：`scripts/test-ui-flows.cjs` 新增 F07/F08（6→8），用真实 `Index.ets` 项目方法与 `ProjectPanel` 交互方法覆盖列表检索、筛选、任务摘要、推进目标草稿、新建、里程碑、复盘、达成、暂停与归档。
+- 资源自动化：新增 `scripts/test-resources.cjs`（408 条断言）并接入 `verify.sh` 的 `resources` 阶段，检查 `$r('app.string/color.x')` 引用存在性、颜色 base/dark 成对与资源文件重名。
+- 设备 UI：新增 `ProjectFlow.test.ets`（检索/筛选/空态、新建表单渲染与返回不落盘），并修正键盘用例到新表单 id；模拟器 **10/10 通过**。
+
+结果：`bash scripts/verify.sh --label project-module-tests --deny-arkts-warnings` → **14/14 阶段通过**；`core` 行 590/590、块 479/479（**100%/100%**），`services` 99.6% 行/99.3% 块，门禁脚本 94.9%/90.8%，0 项不达标；三处编译 0 条 ArkTS 告警；规范门禁 0 error / 13 warning。
+
+记录的问题（未修改生产代码）：项目状态机放行规格状态图未定义的 `paused→completed` 与 `completed→paused`（`core/Workspace.ts:431`）；缺完成标准时抛通用文案而非项目域提示。详见 [10 问题记录](testing/10-test_record.md) 问题 15。
+
+未验证：设备层的项目新建提交、里程碑/复盘落盘与状态流转（由 Node F08 覆盖，设备未验）；深色、大字号、320vp、读屏与真实 Hermes 联调。
+
+证据：[14/14 阶段结果](testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率报告](testing/validation/2026-10-09-project-module-tests/coverage.json)、[设备 10/10](testing/validation/2026-10-09-project-module-device/device-test.txt)（证据目录仅本地保留）。
+
+## 2026-10-11 · V1 项目与阅读架构实施
+
+用户要求根据最新架构更新项目与阅读，暂不实施 V2。本轮沿用普通 V1 列表/表单、语义主题及四入口，原工作区内的 V2 设计稿保留，本轮未将其落地到应用。
+
+### 交付范围
+
+- 项目：完整业务投影经用户确认后加入持久 outbox，CAS 同步与冲突选择；稳定 project-ID Need 的原生会话、可编辑上下文含最近三条复盘、原操作查询。主项目表单仍以 Workspace 为本机边界，远端不自动回写；旧会话不上传或伪装迁移。
+- 项目问题15：限制未定义状态转移，暂停/达成先恢复再切换；重复达成不重复追加依据，缺标准明确提示。
+- 阅读：微信读书来源适配/分页、真实整数百分数或未知进度、显式范围与授权、默认关闭的服务端周期、采集批次与分批指纹、失败保留及未知不重放。问题确认连续原文片段后分享，独立 Need 与原始引用快照关联实际回答。
+- ReadingPanel 去除四项计数、周报及 IMA 文案，保留旧摘抄/总结；副本校验、身份绑定、原子缓存和请求发起空间保护。采集按钮先保存当前可见范围，避免执行旧授权。
+- 同步 01/02/03/06/09、模块17–20、04/10、业务协议及 AGENTS 导航；新增 V1 阅读原型。证据仍仅保留本地。
+
+### 验证结果
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| Harness `--deny-arkts-warnings --date 2026-10-11 --label v1-project-reading-final` | **14/14 通过**；主 HAP/ohosTest/本地 Hypium 均零 ArkTS 告警 |
+| Node 生产行为套件 | **220 条通过**：domain 23、services 45、workspace 111、business 31、flows 10 |
+| core 覆盖率 | **624/624 行、523/523 块，均100%** |
+| services 覆盖率 | **99.6% 行、99.3% 块** |
+| Python 业务/阅读 | **37/37 通过**，含真实回环 HTTP、注入来源与 Hermes；不连接私人来源 |
+| 规范/资源 | **0 error / 13 存量 warning**；门禁自测37条、资源524项断言通过 |
+| 本地 Hypium | **10/10** |
+| 模拟器最终制品 | **11/11 通过**，API26 模拟器；主 HAP 与 ohosTest 安装成功，含阅读/项目入口与键盘回归 |
+
+本地证据：[最终结果](testing/validation/2026-10-11-v1-project-reading-final/results.txt)、[摘要](testing/validation/2026-10-11-v1-project-reading-final/summary.json)、[覆盖率](testing/validation/2026-10-11-v1-project-reading-final/coverage.json)、[设备结果](testing/validation/2026-10-11-v1-project-reading-device-final/device-test.txt)。早期失败包含 ArkUI enabled 命名冲突、沙箱回环监听限制、测试夹具未更新策略与旧 F08 未先恢复暂停项目；不作为最终通过证据。
+
+### 限制与后续验收
+
+本轮未调用真实微信读书/Hermes/IMA，不证明真实权限、手机到业务服务网络、家庭 Ubuntu 部署或周期长期运行。使用阅读前需配置业务服务 `WEREAD_API_KEY`、上游 Hermes 与独立业务凭据，并在手机明确授权书籍范围。服务仍只监听回环，手机需单独的安全转发配置。容量及上下文限制见19/README，超限报错而非静默截断。
+
+项目远端自动回写、多 Agent 执行/审批/部署、V2 前端、API24 真机/深色/大字号/读屏及完整表单设备落盘均未本轮验收；设备入口回归不能替代这些验收。此前 V1 总体尚未全部完成的结论继续有效。
+
+## 2026-10-11 · 阅读/业务模块用例补充与后端覆盖门禁
+
+在 V1 项目/阅读实施之后补齐证据层：
+
+- **组件流程用例**：`scripts/test-ui-flows.cjs` 新增 F11–F16（10→16），覆盖 `ReadingPanel`（快照校验/身份隔离/周期与提问边界/可见范围授权）、`BusinessPanel`（本机副本与身份、计划入队与墓碑删除、同步失败保留 outbox 与重建）、`ProjectPanel`（可写状态、草稿键隔离与复用）；三个组件在切片可达范围内行/块 **100%**。
+- **后端用例与覆盖门禁**：`backend/tests` 37→**77** 条；新增 `scripts/python-coverage.cjs` 并接入流水线 `backend-coverage` 阶段，`backend/*.py` 行覆盖 **100%**（登记不可达的 `server.py` 进程入口 38 行）。
+- **设备用例**：`ReadingFlow.test.ets` 增加阅读入口与"未连接隐藏周期/采集/提问控件"，模拟器 **12/12 通过**。
+
+结果：`bash scripts/verify.sh --label reading-tests --deny-arkts-warnings` → **15/15 阶段通过**；`core` 624/624 行、525/525 块（100%/100%），`components` 切片范围 166/166 行、87/87 块（100%/100%），`services` 99.6%/99.3%，`backend` 5 个模块行覆盖 100%；三处编译 0 条 ArkTS 告警；规范门禁 0 error / 13 warning；资源断言 524 条通过。
+
+记录的问题（未修改生产代码）：失败周期在元数据校验前发布新副本、容量边界只校验本次入参、`Reading.start()` 不幂等且 `stop()` 后无法重启、客户端未校验周期 1–720、未勾选同意仍可采集、提问片段未校验属于选中原文、业务面板连接门控只在 UI 层。详见 [10 问题记录](testing/10-test_record.md) 问题 16。
+
+未验证：真实微信读书/Hermes 来源、家庭部署、手机网络、长周期实跑与大数据容量；项目/阅读页的深色、大字号、320vp 与读屏；设备层完整表单落盘链路。
+
+证据：[15/15 阶段结果](testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](testing/validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](testing/validation/2026-10-11-reading-tests-device/device-test.txt)（证据目录仅本地保留）。

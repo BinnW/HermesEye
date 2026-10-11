@@ -63,13 +63,15 @@
 |---|---|---|
 | `test-domain.cjs`（N 系列） | 23 | 地址、文本、时间、分享上下文、请求/响应协议、旧格式校验 |
 | `test-services.cjs`（S 系列） | 45 | HTTP 适配器、连接检测、凭据存储、结构化日历、提醒、旧持久层、键盘避让 |
-| `test-workspace.cjs`（W 系列） | 79 | 工作区规则、迁移、隔离、校验、原子存储、连接凭据、生产 send/notice 回归、日历导入、计划与建议、页面源守卫 |
-| `test-business.cjs`（B 系列） | 30 | 业务副本、协调器、持久意图、HTTP 适配器、业务落盘 |
-| `test-ui-flows.cjs`（F 系列） | 6 | 模拟点击的端到端业务流程（导航/计划/非法输入/日历导入/连接保存/发送） |
+| `test-workspace.cjs`（W 系列） | 111 | 工作区规则、迁移、隔离、校验、原子存储、连接凭据、生产 send/notice 回归、日历导入、计划与建议、项目扩展字段、页面源守卫 |
+| `test-business.cjs`（B 系列） | 31 | 业务副本、协调器、持久意图、HTTP 适配器、业务落盘 |
+| `test-ui-flows.cjs`（F 系列） | 16 | 模拟点击的端到端业务流程（导航/计划/非法输入/日历导入/连接保存/发送/项目/阅读身份隔离与周期/业务面板同步与墓碑删除） |
 | `test-standards.cjs` | 37 | 规范门禁自身：31 条规则各一个 fixture + CLI 分支 |
-| `backend/tests`（Python） | 12 | SQLite 业务服务、CAS、分页、回环 HTTP |
+| `test-resources.cjs` | 524 断言 | 资源完整性：`$r('app.string/color.x')` 引用存在性、颜色 base/dark 成对、资源文件结构与重名 |
+| `backend/tests`（Python） | 77 | SQLite 业务服务、CAS、分页、回环 HTTP、阅读策略/采集/分片/疑问、WeRead 适配器错误路径 |
+| `scripts/python-coverage.cjs` | 5 个模块 ≥90% | 后端行覆盖门禁：`sys.settrace` + `dis` 可执行行口径，登记不可达入口 |
 | `LocalUnit.test.ets`（L 系列，Previewer Hypium） | 10 | 真实 ArkTS 运行时下的关键领域行为 |
-| `Ability.test.ets` + `Flow.test.ets`（U 系列，设备 UI Hypium） | 8 | 导航、阅读缺失态、键盘 UI 回归、真实 Asset Store、模拟点击的计划日期与编辑器流程 |
+| `Ability.test.ets` + `Flow.test.ets` + `ProjectFlow.test.ets` + `ReadingFlow.test.ets`（U 系列，设备 UI Hypium） | 12 | 导航、阅读缺失态、键盘 UI 回归、真实 Asset Store、计划日期与编辑器、项目检索与表单装配、阅读入口与未连接时隐藏周期控件 |
 
 ## N 系列 · 领域规则（test-domain.cjs）
 |编号|场景与断言|
@@ -309,3 +311,90 @@
 - 设备实测只在 DevEco 内置模拟器（API 26）完成，真机未验证；权限、提醒、真实日历与真实 Hermes 仍不在上述证据范围内。
 
 证据：[13/13 阶段结果](validation/2026-10-07-test-rebuild/results.txt)、[覆盖率报告](validation/2026-10-07-test-rebuild/coverage.json)、[规范报告](validation/2026-10-07-test-rebuild/standards.json)、[设备 8/8](validation/2026-10-07-click-flows-device/device-test.txt)、[问题11诊断](validation/2026-10-07-click-flows-diag3/device-test.txt)。
+
+## 2026-10-09 · 项目模块验证边界
+
+依用户本轮明确要求，开发过程中不新增测试用例，未修改覆盖率下限。新增Project扩展字段校验、保存/状态/里程碑/复盘/摘要规则无新增行为用例，现有coverage会报告未覆盖分支，不能宣称全门禁通过。替代信号为现有逻辑套件、ArkTS编译与设计原型检查；它们不足以验证新规则全部成功/失败路径。设备与真实Hermes尚未验证；当前能力与缺口详见[18实施记录](../modules/18-project-implementation.md)。
+
+## 2026-10-09 · 项目模块用例补充
+
+工作区新增项目模块（`core/Workspace.ts` 项目扩展字段与生命周期规则、`components/ProjectPanel.ets`、`Index.ets` 项目页与路由、`string.json` +204 行）后，按改动补充三层用例，并把覆盖率恢复到门禁要求。
+
+| 层 | 新增内容 | 数量 |
+|---|---|---|
+| Node 单元 | `scripts/test-workspace.cjs` 项目规则用例：`ProjectDraft` 默认值、`validateProjectDetails` 全字段边界、`projectKindLabel`/`projectStatusLabel`、`projectDraft`、`saveProject`（新建/更新/归档拒绝/必填校验）、`changeProjectStatus`（暂停/恢复/达成/归档 + 达成依据复盘）、`addProjectMilestone`/`setProjectMilestone`/`addProjectReview`、`projectBrief` 缺省文案与截断、`validateWorkspace` 集成 | +30（79→109） |
+| Node 流程 | `scripts/test-ui-flows.cjs` F07 项目列表（状态筛选、搜索命中名称/目标、任务摘要、推进目标草稿）与 F08 项目详情（新建、里程碑增删切换、复盘、达成、暂停、归档、归档后拒绝写入） | +2（6→8） |
+| 资源自动化 | 新增 `scripts/test-resources.cjs`（408 条断言）：引用的 `app.string`/`app.color` 必须存在、`app.color` 必须 base/dark 成对、资源文件不得重名、配置里的 `$string:`/`$color:` 也纳入扫描 | 新套件 |
+| 设备 UI | 新增 `ProjectFlow.test.ets`：项目列表检索/筛选/空态；新建表单渲染与"返回不落盘"；并修正键盘用例到新表单 id（`project-name`/`project-goal`/`project-save`） | +2（8→10） |
+
+### 覆盖率结果（`--deny-arkts-warnings`）
+
+| 范围 | 行 | 块 |
+|---|---|---|
+| `core/*.ts` | **590/590 100%** | **479/479 100%** |
+| `services/*.ets` | 677/680 99.6% | 270/272 99.3% |
+| `scripts/check-standards.cjs` | 614/647 94.9% | 228/251 90.8% |
+
+零项不达标；`hap-default`、`hap-ohostest`、`hypium-local` 均 0 条 ArkTS 告警；规范门禁 0 error / 13 warning。
+
+### 设备层取舍（诚实记录）
+
+完整的"新建 → 里程碑 → 复盘 → 归档"链路**不在设备层执行**：模拟器上新建表单中段字段会被软键盘遮挡，TestKit 的 `scrollSearch` 在这些字段上会长时间阻塞（实测两次 60 秒超时，并连带让后续用例报 `uitest-api does not allow calling concurrently`）。该链路改由 Node 层 F08 用真实 `ProjectPanel`/`Workspace` 规则确定性覆盖；设备层只验证入口可达、必填字段与类型按钮渲染、返回不落盘。这与仓库既有原则一致：逻辑用例优先放无设备的 Node 套件，设备层只补 UI 装配与系统能力。
+
+### 未验证范围
+
+- 设备层未覆盖：项目新建提交、里程碑与复盘写入、状态流转与归档确认的实际落盘（Node 已覆盖，设备未验）。
+- 未验证大字号、320vp、读屏与深色主题下的项目页表现（沿用 09 设计约束，仍待设备核验）。
+- 项目与 Hermes 的持续交互、远端 multi-agent 执行仍是协议草案，无自动化用例。
+
+证据：[14/14 阶段结果](validation/2026-10-09-project-module-tests/results.txt)、[覆盖率报告](validation/2026-10-09-project-module-tests/coverage.json)、[设备 10/10](validation/2026-10-09-project-module-device/device-test.txt)。
+
+## 2026-10-11 · V1 项目/阅读新增回归
+
+- Node core：真实 1%/null 进度、损坏来源/问题副本拒绝、旧资料保留、复盘预览，以及项目未定义状态转移拒绝/重复达成去重/缺标准提示。core 仍执行 100% 块/行门禁。
+- Node F09：驱动 ReadingPanel 的连接、身份隔离、原子缓存失败、可见授权范围保存后采集、明确来源问题与请求关联；F10：生产项目业务方法的完整投影、修订和独立 Need。BusinessClient 覆盖全部阅读端点与方法。
+- Python：完整来源分页/游标/升级、真实进度、完整采集后发布、采集批次去重/失败/重启未知、长笔记分片、旧资料保留、周期暂停与重启、原文引用、同书问题隔离、超时不重放、真实回环 HTTP 路由；完整项目投影、非法条目与 CAS。
+- 设备 ReadingFlow：阅读连接控件可达，未连接不自动显示采集操作；既有项目检索/表单、四入口、键盘及系统用例继续运行。此用例不向真实微信读书或 Hermes 发请求；完整填写链路仍用 Node F08，设备限制沿用前文。
+
+实际结果以 05/模块交付记录为准，不能从注入来源或 API 26 模拟器推断真实来源/API 24 真机已验收。
+
+## 2026-10-11 · 阅读/业务模块用例补充（组件分支与后端覆盖）
+
+工作区新增阅读模块（`core/Reading.ts`、`components/ReadingPanel.ets`、`backend/reading.py`、`Index.ets` 阅读页）并改动了业务面板与后端 store/service/server。仓库已有契约级用例（F09、W 系列阅读断言、Python 37 条），但**组件分支覆盖偏低、后端没有覆盖度证据**，本轮补齐这两块。
+
+| 层 | 新增内容 | 结果 |
+|---|---|---|
+| Node 流程（F11–F16） | 阅读面板（快照校验/连接前置/身份隔离、周期与提问边界、可见范围授权）、业务面板（本机副本与身份、计划入队与墓碑删除、同步失败保留 outbox 与重建） | 10→**16** 条；`ReadingPanel`/`BusinessPanel`/`ProjectPanel` 在切片可达范围内 **块与行 100%**（未覆盖分支 0） |
+| 后端用例（+40） | `test_reading.py`：配置边界/31 本/类型与时区非法、pending 回填、collections 上限、条目重复与容量、撤销同意、周期复用与指纹变化、并发锁释放、tick 失败落库、worker 生命周期、分片 offset 与元数据 413、WeRead 1MiB 上限与 100 页 for-else；`test_service.py`：store 边界与 ID 复用、submit 会话重建与上游非法、run 采集与 gap、hermes 重定向/传输/事件流、阅读与通用路由鉴权与异常映射 | 37→**77** 条 |
+| 后端覆盖门禁（新） | `scripts/python-coverage.cjs`：临时 Python 驱动 + `sys.settrace`/`threading.settrace`，分母用 `dis.findlinestarts` 取真正可执行行；`serve` 入口 38 行显式登记为不可达 | `hermes.py` 61/61、`reading.py` 299/299、`server.py` 100/100、`service.py` 95/95、`store.py` 200/200，**全部 100%** |
+| 设备 UI（+1） | `ReadingFlow.test.ets` 新增「首页→阅读概览→未连接时隐藏周期/采集/提问控件」 | 11→**12** 例，模拟器 **12/12 通过** |
+
+### 覆盖率结果（`--deny-arkts-warnings`）
+
+| 范围 | 行 | 块 |
+|---|---|---|
+| `core/*.ts` | 624/624 **100%** | 525/525 **100%** |
+| `components/*.ets`（切片可达范围） | 166/166 **100%** | 87/87 **100%** |
+| `services/*.ets` | 690/693 99.6% | 273/275 99.3% |
+| `scripts/check-standards.cjs` | 586/607 96.5% | 224/241 92.9% |
+| `backend/*.py` | 755/755 **100%**（排除已登记不可达 38 行） | — |
+
+`verify.sh` 因此变为 **15 阶段**（新增 `backend-coverage`），`--skip-build` 为 11 阶段；三处编译 0 条 ArkTS 告警，规范门禁 0 error / 13 warning。
+
+### 组件覆盖的口径（诚实标注）
+
+组件文件的覆盖分母来自「VM 实际加载的切片偏移 ↔ 整文件 source map」映射，`build()`/`@Builder`/`@Styles` 等 ArkUI 声明区不能作为普通类转译，天然不在被测范围内。因此上表 100% 是**被测切片可达范围**内的 100%，不代表整文件逐行；渲染与可见性仍由设备用例与人工验收覆盖。
+
+### 本轮发现并记录的问题（详见 [10 问题记录](10-test_record.md) 问题16）
+
+- 后端：失败周期在元数据校验前就发布了新副本（`reading.py:188` 早于 `:193`）；2000 条/500KB 容量边界只校验本次入参，合并历史后可越界；`Reading.start()` 不幂等且 `stop()` 后无法重启。
+- 客户端：阅读周期 1–720 未在本地校验（服务端才拒绝）；未勾选同意时「一键采集」未禁用；提问片段未校验属于选中原文。
+- 业务面板：「仅已连接可用」只由 `build()` 的 `.enabled()` 承载，方法层无守卫。
+
+### 未验证范围
+
+- 真实微信读书/Hermes 来源、家庭部署、手机网络、长时间周期实跑与大数据容量仍待联调；本轮全部为注入实现。
+- 设备层仍未覆盖完整表单落盘链路（沿用上一轮记录的限制）；深色、大字号、320vp 与读屏未在项目/阅读页验收。
+- 不可达登记只有 `backend/server.py` 的进程入口；其余文件无豁免。
+
+证据：[15/15 阶段结果](validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](validation/2026-10-11-reading-tests-device/device-test.txt)（目录仅本地保留）。

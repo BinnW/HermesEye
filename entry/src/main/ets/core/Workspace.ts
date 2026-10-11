@@ -1,3 +1,4 @@
+import { ReadingSnapshot, validateReadingSnapshot } from './Reading';
 import { AppData, Message, Task, cleanText, apiBase, validateData } from './Domain';
 
 export type OwnerKind = 'independent' | 'project' | 'plan' | 'book';
@@ -6,7 +7,25 @@ export interface Connection {
   name: string; host: string; protocol: string; port: number; basePath: string;
   model: string; allowPrivateHttp: boolean; autoConnect: boolean; credentialRef: string;
 }
-export interface Project { id: string; name: string; goal: string; managedBy: string; nextStep: string; }
+export interface ProjectMilestone { id: string; title: string; dueDate: string; done: boolean; }
+export interface ProjectReview { id: string; text: string; createdAt: number; }
+export interface Project {
+  id: string; name: string; goal: string; managedBy: string; nextStep: string;
+  kind?: string; status?: string; criteria?: string; targetDate?: string;
+  milestones?: ProjectMilestone[]; reviews?: ProjectReview[];
+}
+export class ProjectDraft {
+  name: string = '';
+  goal: string = '';
+  managedBy: string = 'manual';
+  kind: string = 'learning';
+  criteria: string = '';
+  targetDate: string = '';
+  nextStep: string = '';
+  milestoneTitle: string = '';
+  milestoneDate: string = '';
+  review: string = '';
+}
 export interface Need {
   id: string; name: string; ownerKind: OwnerKind; ownerId: string; createdAt: number;
   messages: Message[];
@@ -120,6 +139,7 @@ export interface AgentRun {
 export interface NeedLink { kind: OwnerKind; ownerId: string; needId: string; }
 export interface Space {
   serverKey: string; links: NeedLink[]; projects: Project[]; needs: Need[]; plans: PlanItem[]; records: IntervalRecord[];
+  readingSnapshot?: ReadingSnapshot; readingServerId?: string; readingWorkspaceId?: string;
   books: ReadingItem[]; runs: AgentRun[]; reminders: Task[]; lastSyncAt: number | null;
 }
 export interface Workspace {
@@ -287,6 +307,7 @@ export function validateWorkspace(workspace: Workspace): Workspace {
     space.projects.forEach((item: Project) => {
       cleanText(item.name, 100); cleanText(item.goal);
       if (!['manual', 'agent'].includes(item.managedBy) || typeof item.nextStep !== 'string') { throw new Error('项目托管信息无效'); }
+      validateProjectDetails(item);
     });
     space.plans.forEach((item: PlanItem) => {
       cleanText(item.title, 200);
@@ -315,6 +336,7 @@ export function validateWorkspace(workspace: Workspace): Workspace {
       });
     });
     space.records.forEach(validateRecord);
+    if (space.readingSnapshot) { validateReadingSnapshot(space.readingSnapshot); }
     space.books.forEach((item: ReadingItem) => {
       cleanText(item.title, 300); cleanText(item.source, 300);
       if ((item.progress !== null && typeof item.progress !== 'string') || !Number.isFinite(item.updatedAt) || item.updatedAt <= 0 ||
@@ -338,4 +360,122 @@ export function validDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { return false; }
   const date = new Date(value + 'T12:00:00');
   return Number.isFinite(date.getTime()) && dayKey(date) === value;
+}
+
+
+// 项目扩展字段保持可选，旧工作区按「其他 / 进行中」显示，不重写历史目标。
+export function validateProjectDetails(project: Project): void {
+  if ((project.kind !== undefined && !['learning', 'fitness', 'effectiveness', 'software', 'other'].includes(project.kind)) ||
+    (project.status !== undefined && !['active', 'paused', 'completed', 'archived'].includes(project.status))) {
+    throw new Error('项目类型或状态无效');
+  }
+  if ((project.criteria !== undefined && (typeof project.criteria !== 'string' || project.criteria.length > 4000)) ||
+    project.nextStep.length > 4000 ||
+    (project.targetDate !== undefined && project.targetDate !== '' && !validDate(project.targetDate))) {
+    throw new Error('项目完成标准、下一步或目标日期无效');
+  }
+  if (project.milestones !== undefined) {
+    if (!Array.isArray(project.milestones) || project.milestones.length > 100) { throw new Error('项目里程碑格式无效或超过 100 项'); }
+    unique(project.milestones.map((item: ProjectMilestone) => item.id));
+    project.milestones.forEach((item: ProjectMilestone) => {
+      cleanText(item.title, 200);
+      if (typeof item.done !== 'boolean' || (item.dueDate !== '' && !validDate(item.dueDate))) { throw new Error('里程碑日期或状态无效'); }
+    });
+  }
+  if (project.reviews !== undefined) {
+    if (!Array.isArray(project.reviews)) { throw new Error('项目复盘格式无效'); }
+    unique(project.reviews.map((item: ProjectReview) => item.id));
+    project.reviews.forEach((item: ProjectReview) => {
+      cleanText(item.text);
+      if (!Number.isFinite(item.createdAt) || item.createdAt <= 0) { throw new Error('复盘时间无效'); }
+    });
+  }
+}
+export function projectKindLabel(kind: string = 'other'): string {
+  if (kind === 'learning') { return '学习成长'; }
+  if (kind === 'fitness') { return '健身运动'; }
+  if (kind === 'effectiveness') { return '效能提升'; }
+  if (kind === 'software') { return '软件构建'; }
+  return '其他';
+}
+export function projectStatusLabel(status: string = 'active'): string {
+  if (status === 'paused') { return '已暂停'; }
+  if (status === 'completed') { return '已达成'; }
+  if (status === 'archived') { return '已归档'; }
+  return '进行中';
+}
+export function projectDraft(project?: Project): ProjectDraft {
+  const draft = new ProjectDraft();
+  if (project) {
+    draft.name = project.name; draft.goal = project.goal; draft.managedBy = project.managedBy;
+    draft.kind = project.kind || 'other'; draft.criteria = project.criteria || '';
+    draft.targetDate = project.targetDate || ''; draft.nextStep = project.nextStep;
+  }
+  return draft;
+}
+export function saveProject(space: Space, id: string, draft: ProjectDraft): string {
+  const existing = id ? space.projects.find((item: Project) => item.id === id) : undefined;
+  if (id && !existing) { throw new Error('项目已不存在'); }
+  if (existing?.status === 'archived') { throw new Error('请先恢复已归档项目'); }
+  const project: Project = { id: id || newId(), name: cleanText(draft.name, 100), goal: cleanText(draft.goal),
+    managedBy: draft.managedBy, nextStep: draft.nextStep.trim(), kind: draft.kind,
+    status: existing?.status || 'active', criteria: cleanText(draft.criteria), targetDate: draft.targetDate.trim(),
+    milestones: existing?.milestones || [], reviews: existing?.reviews || [] };
+  if (!['manual', 'agent'].includes(project.managedBy)) { throw new Error('项目托管方式无效'); }
+  validateProjectDetails(project);
+  if (existing) { space.projects.splice(space.projects.indexOf(existing), 1, project); }
+  else { space.projects.push(project); }
+  return project.id;
+}
+export function changeProjectStatus(space: Space, id: string, status: string, evidence: string): void {
+  const project = space.projects.find((item: Project) => item.id === id);
+  if (!project) { throw new Error('项目已不存在'); }
+  if (!['active', 'paused', 'completed', 'archived'].includes(status)) { throw new Error('项目状态无效'); }
+  if (project.status === 'archived' && status !== 'active') { throw new Error('请先恢复已归档项目'); }
+  const current = project.status || 'active';
+  if (current === status) { return; }
+  if ((status === 'paused' || status === 'completed') && current !== 'active') {
+    throw new Error('请先重新推进项目，再选择暂停或达成');
+  }
+  if (status === 'completed') {
+    const criteria = project.criteria || '';
+    if (!criteria.trim()) { throw new Error('请先填写完成标准'); }
+    cleanText(criteria);
+    const review: ProjectReview = { id: newId(), text: '目标达成依据：' + cleanText(evidence, 3900), createdAt: Date.now() };
+    project.reviews = (project.reviews || []).concat([review]);
+  }
+  project.status = status;
+}
+export function addProjectMilestone(space: Space, id: string, title: string, dueDate: string): void {
+  const project = editableProject(space, id);
+  const item: ProjectMilestone = { id: newId(), title: cleanText(title, 200), dueDate: dueDate.trim(), done: false };
+  if (item.dueDate && !validDate(item.dueDate)) { throw new Error('里程碑日期请填写 YYYY-MM-DD'); }
+  if ((project.milestones || []).length >= 100) { throw new Error('每个项目最多 100 项里程碑'); }
+  project.milestones = (project.milestones || []).concat([item]);
+}
+function editableProject(space: Space, id: string): Project {
+  const project = space.projects.find((item: Project) => item.id === id);
+  if (!project) { throw new Error('项目已不存在'); }
+  if (project.status === 'archived') { throw new Error('请先恢复已归档项目'); }
+  return project;
+}
+export function setProjectMilestone(space: Space, id: string, milestoneId: string, done: boolean): void {
+  const item = (editableProject(space, id).milestones || []).find((value: ProjectMilestone) => value.id === milestoneId);
+  if (!item) { throw new Error('里程碑已不存在'); }
+  item.done = done;
+}
+export function addProjectReview(space: Space, id: string, text: string): void {
+  const project = editableProject(space, id);
+  project.reviews = (project.reviews || []).concat([{ id: newId(), text: cleanText(text), createdAt: Date.now() }]);
+}
+export function projectBrief(project: Project): string {
+  const milestones = (project.milestones || []).map((item: ProjectMilestone) =>
+    (item.done ? '已完成：' : '待完成：') + item.title + (item.dueDate ? '（' + item.dueDate + '）' : '')).join('\n');
+  const text = '请帮助我推进这个项目，先讨论建议，不代表授权执行或部署。\n项目：' + project.name +
+    '\n类型：' + projectKindLabel(project.kind) + '\n状态：' + projectStatusLabel(project.status) +
+    '\n目标：' + project.goal + '\n完成标准：' + (project.criteria || '待明确') +
+    '\n目标日期：' + (project.targetDate || '未设定') + '\n下一步：' + (project.nextStep || '待讨论') +
+    '\n最近复盘：\n' + (project.reviews || []).slice(-3).map((review: ProjectReview) => review.text).join('\n') +
+    '\n里程碑：\n' + (milestones || '尚未制定') + '\n请先澄清约束，再给出可执行的下一步。';
+  return text.length <= 3900 ? text : text.slice(0, 3800) + '\n（项目内容较长，此摘要已截短，请编辑并补充本次需要讨论的部分。）';
 }

@@ -27,7 +27,9 @@ function load(relative, imports = {}) {
   return sandbox.exports;
 }
 const domain = load('core/Domain.ts');
-const w = load('core/Workspace.ts', { './Domain': domain });
+const reading = load('core/Reading.ts');
+const w = load('core/Workspace.ts', { './Domain': domain, './Reading': reading });
+const businessSync = load('core/BusinessSync.ts', { './Workspace': w });
 const presentation = load('services/SystemPresentation.ets', { '@kit.AbilityKit': { ConfigurationConstant: {} } });
 const ConnectionService = load('services/ConnectionService.ets', { '../core/Workspace': w }).ConnectionService;
 const pagePath = path.join(__dirname, '../entry/src/main/ets/pages/Index.ets');
@@ -42,7 +44,8 @@ const GROUPS = {
   connection: { from: '  private config(): Connection', to: '  private async addProject(' },
   fill: { from: '  private fillConnection(): void', to: '  private async load(' },
   calendar: { from: '  private async refreshCalendar(', to: '  private async addReminder(' },
-  send: { from: '  private async send()', to: '  private async refreshCalendar(' }
+  send: { from: '  private async send()', to: '  private async refreshCalendar(' },
+  project: { from: '  private projectTaskSummary(', to: '  @Styles\n  surface()' }
 };
 
 function slice(from, to) {
@@ -66,8 +69,54 @@ const PAGE_GLOBALS = {
   dayKey: w.dayKey, validDate: w.validDate, importCalendarPlans: w.importCalendarPlans, savePlan: w.savePlan,
   removePlan: w.removePlan, shiftDay: w.shiftDay, planCounts: w.planCounts, dailyReport: w.dailyReport,
   cleanText: domain.cleanText, createRequest: domain.createRequest, newId: w.newId,
+  projectBrief: w.projectBrief, projectKindLabel: w.projectKindLabel, projectStatusLabel: w.projectStatusLabel,
   showToast: presentation.showToast, applySystemAppearance: () => {}, ConnectionService: ConnectionService
 };
+
+// ProjectPanel.ets 的项目详情/编辑交互方法同样无法直接 import（ArkUI 装饰器），
+// 用与 Index.ets 相同的切片 + VM 注入方式驱动；平台能力只有 this.save 回调，由用例注入。
+const panelPath = path.join(__dirname, '../entry/src/main/ets/components/ProjectPanel.ets');
+const panelSource = fs.readFileSync(panelPath, 'utf8');
+function makePanel(name) {
+  const from = panelSource.indexOf('  aboutToAppear(): void');
+  const to = panelSource.indexOf('  @Styles\n  card()');
+  if (from < 0 || to <= from) { throw new Error('ProjectPanel.ets 切片失败'); }
+  const body = panelSource.slice(from, to);
+  const source = `class ${name} {\n${body}\n}\nexports.${name} = ${name};`;
+  const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS } }).outputText;
+  const sandbox = {
+    exports: {}, setTimeout, clearTimeout, newId: w.newId,
+    saveProject: w.saveProject, changeProjectStatus: w.changeProjectStatus, addProjectMilestone: w.addProjectMilestone,
+    setProjectMilestone: w.setProjectMilestone, addProjectReview: w.addProjectReview,
+    projectDraft: w.projectDraft, ProjectDraft: w.ProjectDraft
+  };
+  vm.runInNewContext(compiled, sandbox, { filename: panelPath });
+  return sandbox.exports[name];
+}
+
+// 面板靶机：data 是真实工作区，save 走真实规则并记录每次落盘，便于断言"点击后到底写了什么"。
+function openPanel(options = {}) {
+  const Panel = makePanel('PanelHarness');
+  const h = new Panel();
+  h.data = w.newWorkspace();
+  const space = w.activeSpace(h.data);
+  if (options.project) { space.projects.push(options.project); }
+  h.project = options.project;
+  h.writable = options.writable !== false;
+  h.server = options.server || 'local';
+  h.drafts = options.drafts || new Map();
+  h.draft = options.project ? w.projectDraft(options.project) : new w.ProjectDraft();
+  h.editing = !options.project;
+  h.section = 'overview';
+  h.confirmation = '';
+  h.fieldRevision = 0;
+  const saved = [];
+  const opened = [];
+  h.save = async (change) => { change(space); saved.push(w.copyWorkspace(h.data)); return true; };
+  h.opened = (id) => { opened.push(id); };
+  h.discuss = () => {};
+  return { h, space, saved, opened };
+}
 
 // Builds a page stand-in with every @State/private field the sliced methods touch and the
 // usual platform mocks. `saved` records each repository.save argument, `toasts` each notice.
@@ -92,6 +141,7 @@ function openPage(name, groups, globals = {}) {
   h.recordStart = ''; h.recordEnd = ''; h.backfilled = false;
   h.reportDate = h.planDate; h.reminderTitle = ''; h.reminderTime = '21:00'; h.weekdays = false;
   h.projectNextStep = '';
+  h.projectQuery = ''; h.projectFilter = 'active';
   h.connectionStatus = '尚未连接';
   h.name = ''; h.host = ''; h.protocol = 'https'; h.port = '443'; h.basePath = ''; h.model = 'hermes-agent';
   h.token = ''; h.showToken = false; h.allowHttp = false; h.autoConnect = false;
@@ -142,6 +192,62 @@ function credentialSpy(events) {
   };
 }
 
+// 真实 BusinessClient + 注入的 HTTP 适配器：既能断言"未触达网络"，也能驱动真实请求与解析路径。
+function httpAdapter(log, routes) {
+  return { http: { RequestMethod: { GET: 'GET', POST: 'POST' }, HttpDataType: { STRING: 'string' },
+    createHttp: () => ({
+      async request(url) {
+        log.push(url);
+        const suffix = url.replace(/^https?:\/\/[^/]+/, '');
+        const route = routes[suffix];
+        if (!route) { throw new Error('未预期请求 ' + suffix); }
+        return route;
+      },
+      destroy() { log.push('destroy'); }
+    }) } };
+}
+function businessClient(kit) {
+  return load('services/BusinessClient.ets', { '@kit.NetworkKit': kit, '../core/Domain': domain }).BusinessClient;
+}
+function readingEntry(id, kind = 'thought', text = '想法正文', location = '第一章') { return { id, kind, text, location }; }
+function readingBook(id, extra = {}) {
+  return { id, title: '书-' + id, source: '微信读书', updatedAt: 1, sourceUpdatedAt: null, progress: null,
+    progressUnit: 'percent', entries: [], questions: [], cycles: [], organized: '', ...extra };
+}
+function readingSnapshot(overrides = {}) {
+  const books = overrides.books || [readingBook('b1')];
+  const policy = { enabled: false, bookIds: books.map((item) => item.id), intervalHours: 24,
+    timezone: 'Asia/Shanghai', consent: false, ...(overrides.policy || {}) };
+  const snapshot = { books, policy, sourceConfigured: overrides.sourceConfigured === undefined ? true : overrides.sourceConfigured };
+  if (overrides.collections) { snapshot.collections = overrides.collections; }
+  return snapshot;
+}
+// ReadingPanel 靶机：切片与 F09 完全一致，因此 V8 函数区间相同，覆盖按进程合并而不是重复计数。
+function openReading(globals = {}, overrides = {}) {
+  const h = componentHandlers('ReadingPanel', '  aboutToAppear()', '  @Styles', {
+    validateReadingSnapshot: reading.validateReadingSnapshot, newId: w.newId, ...globals
+  });
+  Object.assign(h, { busy: false, connected: false, serverId: '', workspaceId: '', books: [], collections: [],
+    root: '', token: '', allowHttp: false, spaceKey: 'local', message: '', bookIds: '', interval: '24',
+    timezone: 'Asia/Shanghai', scheduleEnabled: false, consent: false, selectedBook: '', selectedEntry: '',
+    entryLimit: 20, questionLimit: 20, questionText: '', quote: '', nextAt: 0, sourceConfigured: false,
+    initial: undefined, client: undefined, identity: undefined, cache: async () => true }, overrides);
+  return h;
+}
+// BusinessPanel 切片：A 覆盖 aboutToAppear/loadOffline/connect/act/createPlan，B 覆盖 exportProject/deletePlan/send。
+function businessPanelA(globals) {
+  return componentHandlers('BusinessPanel', '  aboutToAppear()', '  private async exportProject', globals);
+}
+function businessPanelB(globals) {
+  return componentHandlers('BusinessPanel', '  private async exportProject', '  build()', globals);
+}
+function businessPanelFields(overrides = {}) {
+  return { project: undefined, root: '', token: '', allowHttp: false, busy: false, connected: false, localReady: false,
+    title: '', prompt: '', needId: '', replica: businessSync.newBusinessState({ protocolVersion: 1, serverId: 'unbound',
+      workspaceId: 'unbound' }, 'unbound'), coordinator: undefined, status: '独立业务副本，不会自动上传旧计划、日历或历史对话。',
+    getUIContext: () => ({ getHostContext: () => ({ filesDir: '/sandbox' }) }), ...overrides };
+}
+
 let passed = 0;
 async function test(id, name, action) {
   const trace = [];
@@ -161,7 +267,82 @@ async function test(id, name, action) {
   }
 }
 
+function componentHandlers(name, from, to, globals) {
+  const file = path.join(__dirname, '../entry/src/main/ets/components', name + '.ets');
+  const source = fs.readFileSync(file, 'utf8');
+  const methods = source.slice(source.indexOf(from), source.indexOf(to));
+  const compiled = ts.transpileModule('class Harness {' + methods + '} exports.Harness = Harness;', {
+    compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS }
+  }).outputText;
+  const sandbox = { exports: {}, ...globals };
+  vm.runInNewContext(compiled, sandbox, { filename: file });
+  return new sandbox.exports.Harness();
+}
+
 async function main() {
+  await test('F09', '阅读交互：身份隔离、缓存失败、明确授权与逐条问题', async ui => {
+    const reading = load('core/Reading.ts');
+    const entry = { id: 'e1', kind: 'thought', text: 'My note', location: 'chapter1' };
+    const snapshot = { books: [{ id: 'b1', title: 'B', source: '微信读书', updatedAt: 1, sourceUpdatedAt: null,
+      progress: null, progressUnit: 'percent', entries: [entry], questions: [], cycles: [], organized: '' }],
+      policy: { enabled: false, bookIds: ['b1'], intervalHours: 24, timezone: 'Asia/Shanghai', consent: false }, sourceConfigured: true };
+    let identity = { protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }, diskFail = false, failRead = false;
+    const requests = [];
+    class Client {
+      async identity() { return identity; }
+      async reading() { if (failRead) throw Error('offline'); return JSON.parse(JSON.stringify(snapshot)); }
+      async readingPolicy(policy) { requests.push(['policy', policy]); snapshot.policy = JSON.parse(JSON.stringify(policy)); }
+      async collectReading(request) { requests.push(['collect', request]); }
+      async readingQuestion(question) { requests.push(['question', question]); return question; }
+      async readingAnswer(answer) { requests.push(['answer', answer]); return { state: 'unknown' }; }
+    }
+    const h = componentHandlers('ReadingPanel', '  aboutToAppear()', '  @Styles', {
+      BusinessClient: Client, validateReadingSnapshot: reading.validateReadingSnapshot, newId: w.newId
+    });
+    Object.assign(h, { busy: false, connected: false, serverId: 's1', workspaceId: 'w1', books: [], root: 'https://example.org',
+      token: 'memory-only', allowHttp: false, spaceKey: 'local', cache: async (_snapshot, _identity, spaceKey) => {
+        assert.equal(spaceKey, 'local', '缓存必须携带请求发起空间，不能沿用切换后的空间'); return !diskFail; } });
+    await ui.click('连接并读取副本', () => h.connect());
+    assert.equal(h.connected, true); assert.equal(h.token, ''); assert.equal(h.books[0].progress, null);
+    h.selectedBook = 'b1'; h.selectedEntry = 'e1'; h.questionText = 'Why?'; h.quote = entry.text;
+    await ui.click('确认来源并提问', () => h.act(c => h.ask(c)));
+    assert.equal(requests[0][0], 'question'); assert.equal(requests[1][0], 'answer');
+    assert.equal(requests[1][1].questionId, requests[0][1].id); assert.equal(h.questionText, '');
+    h.bookIds = 'b1, b2, '; h.interval = '12'; h.timezone = 'Asia/Shanghai'; h.consent = true; h.scheduleEnabled = true;
+    await ui.click('保存范围与周期', () => h.act(c => h.savePolicy(c)));
+    assert.deepEqual(JSON.parse(JSON.stringify(requests[2][1])), { enabled: true, bookIds: ['b1', 'b2'],
+      intervalHours: 12, timezone: 'Asia/Shanghai', consent: true });
+    await ui.click('确认当前范围并采集', () => h.act(c => h.collect(c)));
+    assert.equal(requests[3][0], 'policy'); assert.equal(requests[4][0], 'collect');
+    assert.equal(requests[3][1].bookIds.join(','), 'b1,b2');
+    h.selectedEntry = ''; h.questionText = 'X';
+    await h.act(c => h.ask(c)); assert.match(h.message, /选择来源/); assert.equal(h.questionText, 'X');
+    diskFail = true; await h.act(async () => {}); assert.match(h.message, /本机保存失败/); assert.equal(h.books[0].title, 'B');
+    diskFail = false; failRead = true; await h.act(async () => {}); assert.match(h.message, /offline/);
+    failRead = false; identity = { ...identity, serverId: 'other' }; h.connected = false;
+    await h.connect(); assert.match(h.message, /身份/); assert.equal(h.connected, false);
+    h.busy = true; await h.connect(); await h.act(async () => assert.fail('overlap'));
+    h.busy = false; h.client = undefined; await h.act(async () => assert.fail('offline write'));
+    await assert.rejects(() => h.refresh(), /先连接/);
+  });
+  await test('F10', '项目业务会话：目标资料显式入队，发送只使用当前项目 Need', async ui => {
+    const h = componentHandlers('BusinessPanel', '  private async exportProject', '  build()', { newId: w.newId });
+    const p = { ...project('p1', '学习'), kind: 'learning', status: 'active', criteria: 'Explain',
+      targetDate: '', milestones: [{ id: 'm1', title: 'Step', dueDate: '', done: false }],
+      reviews: [{ id: 'r1', text: 'Actual evidence', createdAt: 1 }] };
+    h.project = p; h.replica = { deviceId: 'd1', entities: [{ id: 'p1', kind: 'project', revision: 2 }] };
+    const writes = []; const c = { edit: async mutation => writes.push(mutation), send: async intent => writes.push(intent) };
+    await ui.click('确认当前项目加入待同步列表', () => h.exportProject(c));
+    assert.equal(writes[0].baseRevision, 2); assert.equal(writes[0].payload.reviews[0].text, 'Actual evidence');
+    assert.equal('calendarSource' in writes[0].payload, false); assert.equal('messages' in writes[0].payload, false);
+    h.needId = 'project-p1'; h.prompt = 'Preview I explicitly confirmed';
+    await ui.click('保存意图并发送', () => h.send(c));
+    assert.equal(writes[1].needId, 'project-p1'); assert.equal(writes[1].input, 'Preview I explicitly confirmed');
+    assert.equal(h.prompt, ''); h.project = undefined;
+    await assert.rejects(() => h.exportProject(c), /项目已不存在/);
+    h.needId = 'bad/id'; await assert.rejects(() => h.send(c), /会话标识/);
+  });
+
   await test('F01', '导航点击与返回：tab、路由历史与聊天草稿按预期变化', async (ui) => {
     const { h, toasts } = openPage('NavHarness', ['nav']);
     const space = w.activeSpace(h.data);
@@ -570,6 +751,722 @@ async function main() {
     assert.equal(failed.saves, 1, '失败不应再次写入本机');
     assert.equal(failures, 2, '失败后再次点击应重新发起请求');
     assert.match(failedToast, /连接中断或超时/, '失败提示应展示服务错误原因');
+  });
+
+  await test('F07', '项目列表点击：状态筛选、搜索与「与 Hermes 推进目标」草稿', async (ui) => {
+    const { h } = openPage('ProjectListHarness', ['nav', 'project']);
+    const space = w.activeSpace(h.data);
+    space.projects.push(
+      { id: 'p1', name: 'ArkTS 进阶', goal: '学会并发与状态管理', managedBy: 'manual', nextStep: '读官方文档', kind: 'learning', status: 'active' },
+      { id: 'p2', name: '晨跑', goal: '每周三次五公里', managedBy: 'manual', nextStep: '', kind: 'fitness', status: 'paused' },
+      { id: 'p3', name: '上线小工具', goal: '发布给同事使用', managedBy: 'agent', nextStep: '', kind: 'software', status: 'completed' },
+      { id: 'p4', name: '旧目标', goal: '已放弃', managedBy: 'manual', nextStep: '', status: 'archived' },
+      { id: 'p5', name: '历史项目', goal: '没有状态字段', managedBy: 'manual', nextStep: '' });
+    space.plans.push(
+      plan('t1', h.planDate, '读第三章', 'done', { projectId: 'p1' }),
+      plan('t2', h.planDate, '写示例', 'done', { projectId: 'p1' }),
+      plan('t3', h.planDate, '整理笔记', 'todo', { projectId: 'p1' }),
+      plan('t4', h.planDate, '日历事项', 'todo', { projectId: 'p1', calendarSource: { key: 'k', title: '周会', start: 1, end: 2, allDay: false } }),
+      plan('t5', h.planDate, '别的项目任务', 'done', { projectId: 'p2' }));
+    const ids = (list) => list.map((item) => item.id).join(',');
+
+    await ui.click('进入项目页（默认进行中筛选）', () => { h.switchTab(1); });
+    const defaultList = ids(h.visibleProjects());
+    await ui.click('切换筛选「已暂停」', () => { h.projectFilter = 'paused'; });
+    const pausedList = ids(h.visibleProjects());
+    await ui.click('切换筛选「全部」', () => { h.projectFilter = 'all'; });
+    const allList = ids(h.visibleProjects());
+    await ui.click('搜索「ARKTS」', () => { h.projectQuery = '  ARKTS  '; });
+    const searched = ids(h.visibleProjects());
+    await ui.click('搜索「每周三次」（命中目标字段）', () => { h.projectQuery = '每周三次'; });
+    const goalSearch = ids(h.visibleProjects());
+    await ui.click('清空搜索', () => { h.projectQuery = ''; });
+    const summary = h.projectTaskSummary(space.projects[0]);
+    const otherSummary = h.projectTaskSummary(space.projects[1]);
+    const longName = '很长的项目名称'.repeat(20);
+    await ui.click('点击「与 Hermes 推进目标」', () => { h.discussProject({ ...space.projects[0], name: longName }); });
+    const discuss = { project: h.needProject, name: h.needName, description: h.needDescription, route: h.route };
+
+    assert.equal(h.tab, 1, '点击项目 tab 后应停在项目页');
+    assert.equal(defaultList, 'p1,p5', '默认筛选为进行中，且缺 status 的旧项目按进行中展示');
+    assert.equal(pausedList, 'p2', '状态筛选应只返回对应状态');
+    assert.equal(allList, 'p1,p2,p3,p4,p5', '「全部」应不隐藏任何项目');
+    assert.equal(searched, 'p1', '搜索应先去空白并忽略大小写，命中名称或目标');
+    assert.equal(goalSearch, 'p2', '搜索应同时匹配目标字段，不受名称影响');
+    assert.equal(summary, '已完成 2 / 3 项本机任务（不含日历）', '任务摘要只统计本项目非日历事项');
+    assert.equal(otherSummary, '已完成 1 / 1 项本机任务（不含日历）', '任务摘要按项目隔离');
+    assert.equal(discuss.project, 'p1', '推进目标应把需求归属设为该项目');
+    assert.equal(discuss.name.length, 90 + ' · 目标推进'.length, '需求名应截断到 90 字符再加固定后缀');
+    assert.ok(discuss.name.endsWith(' · 目标推进'), '需求名应带可识别的推进后缀');
+    assert.ok(discuss.description.includes('请帮助我推进这个项目'), '需求描述应是项目摘要草稿');
+    assert.equal(discuss.route, 'new-need', '点击后应进入新需求编辑页，不直接发送');
+    assert.equal(space.needs.length, 0, '仅生成草稿，不得自动建立会话');
+  });
+
+  await test('F08', '项目详情点击：新建、状态流转、里程碑与复盘', async (ui) => {
+    const created = openPanel();
+    await ui.click('填写名称', () => { created.h.draft.name = '  新项目  '; });
+    await ui.click('选择类型「软件构建」', () => { created.h.draft.kind = 'software'; });
+    await ui.click('填写目标', () => { created.h.draft.goal = '做一个可用的原型'; });
+    await ui.click('填写完成标准', () => { created.h.draft.criteria = '同事能独立跑通一次'; });
+    await ui.click('填写目标日期', () => { created.h.draft.targetDate = '2026-12-31'; });
+    await ui.click('点击「保存」', async () => { await created.h.submit(); });
+    const project = created.space.projects[0];
+    const afterCreate = { opened: created.opened.slice(), editing: created.h.editing, drafts: created.h.drafts.size };
+
+    const existing = { id: 'p1', name: '旧名', goal: '旧目标', managedBy: 'manual', nextStep: '旧下一步',
+      kind: 'learning', status: 'paused', criteria: '旧标准', milestones: [{ id: 'm1', title: '阶段一', dueDate: '', done: true }], reviews: [] };
+    const detail = openPanel({ project: existing });
+    await ui.click('切换到里程碑分区', () => { detail.h.section = 'milestones'; });
+    await ui.click('填写里程碑', () => { detail.h.draft.milestoneTitle = '  跑通构建  '; detail.h.draft.milestoneDate = '2026-11-01'; });
+    await ui.click('点击「添加里程碑」', async () => { await detail.h.addMilestone(); });
+    const added = detail.space.projects[0].milestones[1];
+    const milestone = { id: added.id, title: added.title, done: added.done, dueDate: added.dueDate };
+    await ui.click('点击里程碑完成状态', async () => { await detail.h.toggleMilestone(added); });
+    const toggledOn = detail.space.projects[0].milestones[1].done;
+    await ui.click('再次点击取消完成', async () => { await detail.h.toggleMilestone(detail.space.projects[0].milestones[1]); });
+    const toggledOff = detail.space.projects[0].milestones[1].done;
+    await ui.click('切换到复盘分区', () => { detail.h.section = 'reviews'; });
+    await ui.click('填写复盘', () => { detail.h.draft.review = '  本周完成脚手架  '; });
+    await ui.click('点击「添加复盘」', async () => { await detail.h.addReview(); });
+    const review = detail.space.projects[0].reviews[0];
+    await ui.click('暂停项目先重新推进', async () => { await detail.h.changeStatus('active'); });
+    await ui.click('填写达成依据后点击「标记达成」', async () => {
+      detail.h.draft.review = '演示通过，同事独立跑通一次';
+      await detail.h.changeStatus('completed');
+    });
+    const atCompletion = detail.space.projects[0];
+    const completed = { status: atCompletion.status, reviews: atCompletion.reviews.length, evidence: atCompletion.reviews[1].text };
+    await ui.click('重新推进', async () => { await detail.h.changeStatus('active'); });
+    const resumed = detail.space.projects[0].status;
+    await ui.click('点击「暂停」', async () => { await detail.h.changeStatus('paused'); });
+    await ui.click('点击「归档」', async () => { await detail.h.changeStatus('archived'); });
+    const archived = detail.space.projects[0].status;
+    const savesBeforeArchivedWrite = detail.saved.length;
+    let archivedRejected = '';
+    await ui.click('归档后再次点击「暂停」', async () => {
+      try { await detail.h.changeStatus('paused'); } catch (error) { archivedRejected = error.message; }
+    });
+
+    assert.equal(project.name, '新项目', '保存应使用去空白后的名称');
+    assert.equal(project.id.length > 0, true, '新建应生成稳定 ID');
+    assert.equal(project.status, 'active', '新建项目默认进行中');
+    assert.equal(project.kind, 'software', '应保存选择的项目类型');
+    assert.equal(project.criteria, '同事能独立跑通一次', '应保存完成标准');
+    assert.deepEqual(afterCreate.opened, [project.id], '新建成功后应回调进入详情');
+    assert.equal(afterCreate.editing, false, '保存后应退出编辑态');
+    assert.equal(afterCreate.drafts, 0, '保存后应清理进程内草稿');
+    assert.equal(milestone.title, '跑通构建', '里程碑标题应去空白');
+    assert.equal(milestone.done, false, '新里程碑默认未完成');
+    assert.equal(milestone.dueDate, '2026-11-01', '里程碑应保存目标日期');
+    assert.equal(detail.h.draft.milestoneTitle, '', '添加成功后应清空里程碑输入');
+    assert.equal(toggledOn, true, '点击后里程碑应变为已完成');
+    assert.equal(toggledOff, false, '再次点击应可重新打开里程碑');
+    assert.equal(detail.space.projects[0].milestones[0].id, 'm1', '新增里程碑应保留既有里程碑');
+    assert.equal(detail.space.projects[0].milestones[0].done, true, '新增里程碑不得重置既有完成状态');
+    assert.equal(review.text, '本周完成脚手架', '复盘应保存去空白文本');
+    assert.ok(review.createdAt > 0, '复盘应记录保存时间');
+    assert.equal(detail.h.draft.review, '', '添加复盘后应清空输入');
+    assert.equal(completed.status, 'completed', '用户确认后应转为已达成');
+    assert.equal(completed.reviews, 2, '达成应追加一条「目标达成依据」复盘');
+    assert.ok(completed.evidence.startsWith('目标达成依据：'), '达成复盘应带固定前缀');
+    assert.ok(completed.evidence.includes('演示通过'), '达成复盘应包含用户填写的依据');
+    assert.equal(detail.h.draft.review, '', '达成后应清空复盘输入框');
+    assert.equal(resumed, 'active', '已达成项目应可重新推进');
+    assert.equal(archived, 'archived', '应可归档项目');
+    assert.equal(archivedRejected, '请先恢复已归档项目', '归档后除恢复外不得再改状态');
+    assert.equal(detail.saved.length, savesBeforeArchivedWrite, '被拒绝的归档后写入不得落盘');
+  });
+
+  await test('F11', '阅读面板：快照校验、连接前置条件与身份隔离', async ui => {
+    const httpLog = [];
+    const routes = {};
+    const h = openReading({ BusinessClient: businessClient(httpAdapter(httpLog, routes)) });
+    const snapshot = readingSnapshot({
+      books: [readingBook('b1', { progress: 42, entries: [readingEntry('e1')] })],
+      collections: [{ id: 'c1', state: 'collected', error: '', created: 1 }],
+      policy: { enabled: true, bookIds: ['b1', 'b2'], intervalHours: 12, timezone: 'Asia/Shanghai', consent: true, nextAt: 1700000000 }
+    });
+    await ui.click('进入阅读面板（本机已有合法快照）', () => { h.initial = snapshot; h.aboutToAppear(); });
+    const shown = { books: h.books.length, progress: h.books[0].progress, bookIds: h.bookIds, interval: h.interval,
+      timezone: h.timezone, enabled: h.scheduleEnabled, consent: h.consent, nextAt: h.nextAt,
+      sourceConfigured: h.sourceConfigured, collections: h.collections.length };
+    await ui.click('再次进入（本次没有本机快照）', () => { h.initial = undefined; h.aboutToAppear(); });
+    const afterNoInitial = h.books.length;
+    const invalidMessages = [];
+    await ui.click('进入阅读面板（副本整体结构非法）', () => {
+      try { h.show({ books: 'bad', policy: { bookIds: [] } }); } catch (error) { invalidMessages.push(error.message); }
+    });
+    await ui.click('进入阅读面板（单本书进度非法）', () => {
+      try { h.show(readingSnapshot({ books: [readingBook('b9', { progress: 150 })] })); } catch (error) { invalidMessages.push(error.message); }
+    });
+    const preserved = { books: h.books.length, id: h.books[0].id, progress: h.books[0].progress };
+
+    h.busy = true;
+    await ui.click('连接处理中再次点击「连接阅读服务」', () => h.connect());
+    const busyGuard = { connected: h.connected, requests: httpLog.length };
+    h.busy = false;
+
+    h.root = 'https://example.org/v1'; h.token = 'tk';
+    await ui.click('根地址含 /v1 时点击连接', () => h.connect());
+    const v1 = { message: h.message, requests: httpLog.length };
+
+    h.root = 'https://example.org'; h.token = '';
+    await ui.click('未填 Token 时点击连接', () => h.connect());
+    const token = { message: h.message, requests: httpLog.length, connected: h.connected };
+
+    h.root = 'http://192.168.1.9:8080'; h.token = 'tk'; h.allowHttp = false;
+    await ui.click('未开启私网 HTTP 时点击连接', () => h.connect());
+    const insecure = { message: h.message, requests: httpLog.length };
+
+    h.root = 'https://example.org'; h.allowHttp = false; h.token = 'tk';
+    const identity = { protocolVersion: 1, serverId: 's1', workspaceId: 'w1' };
+    routes['/eye/v1/capabilities'] = { responseCode: 200, result: JSON.stringify({ ...identity, protocolVersion: 2 }) };
+    await ui.click('服务协议版本不符时点击连接', () => h.connect());
+    const protocol = h.message;
+    routes['/eye/v1/capabilities'] = { responseCode: 200, result: JSON.stringify({ ...identity, serverId: '' }) };
+    await ui.click('服务缺少 serverId 时点击连接', () => h.connect());
+    const server = h.message;
+    routes['/eye/v1/capabilities'] = { responseCode: 200, result: JSON.stringify({ ...identity, workspaceId: '' }) };
+    await ui.click('服务缺少 workspaceId 时点击连接', () => h.connect());
+    const workspace = h.message;
+
+    routes['/eye/v1/capabilities'] = { responseCode: 200, result: JSON.stringify(identity) };
+    routes['/eye/v1/reading'] = { responseCode: 200, result: JSON.stringify(readingSnapshot({ books: [readingBook('b2', { progress: 7 })] })) };
+    await ui.click('尚未绑定服务时点击连接', () => h.connect());
+    const unbound = { connected: h.connected, id: h.books[0].id, token: h.token, message: h.message };
+
+    h.serverId = 's1'; h.workspaceId = 'w1'; h.token = 'tk'; h.connected = false;
+    routes['/eye/v1/capabilities'] = { responseCode: 200, result: JSON.stringify({ ...identity, serverId: 's2' }) };
+    await ui.click('已绑定服务身份变化时点击连接', () => h.connect());
+    const mismatch = { message: h.message, connected: h.connected, books: h.books.length, id: h.books[0].id };
+
+    h.token = 'tk';
+    routes['/eye/v1/capabilities'] = { responseCode: 200, result: JSON.stringify(identity) };
+    const boundBefore = httpLog.length;
+    await ui.click('身份一致后点击连接', () => h.connect());
+    const bound = { connected: h.connected, token: h.token, id: h.books[0].id, message: h.message,
+      requests: httpLog.slice(boundBefore).filter((item) => item.includes('/eye/v1/')).map((item) => item.replace('https://example.org', '')) };
+
+    h.token = 'tk'; h.connected = false;
+    routes['/eye/v1/reading'] = { responseCode: 200, result: JSON.stringify({ books: [], policy: null }) };
+    await ui.click('服务返回非法阅读副本时点击连接', () => h.connect());
+    const badCopy = { message: h.message, connected: h.connected, id: h.books[0].id };
+    h.token = 'tk';
+    routes['/eye/v1/reading'] = { responseCode: 503, result: '' };
+    await ui.click('服务不可用时点击连接', () => h.connect());
+    const offline = { message: h.message, connected: h.connected, id: h.books[0].id };
+    h.client = undefined; h.identity = undefined;
+    let refreshMessage = '';
+    await ui.click('未连接时点击「刷新阅读副本」', async () => {
+      try { await h.refresh(); } catch (error) { refreshMessage = error.message; }
+    });
+
+    assert.equal(shown.books, 1, '合法快照应写入书籍列表');
+    assert.equal(shown.progress, 42, '合法快照应保留来源进度百分数');
+    assert.equal(shown.bookIds, 'b1,b2', '合法快照应把授权范围回显为逗号分隔文本');
+    assert.equal(shown.interval, '12', '合法快照应回显周期小时数');
+    assert.equal(shown.timezone, 'Asia/Shanghai', '合法快照应回显时区');
+    assert.equal(shown.enabled, true, '合法快照应回显周期已启用');
+    assert.equal(shown.consent, true, '合法快照应回显分享同意状态');
+    assert.equal(shown.nextAt, 1700000000, '合法快照应回显下次周期检查时间');
+    assert.equal(shown.sourceConfigured, true, '合法快照应回显来源已配置');
+    assert.equal(shown.collections, 1, '合法快照应回显采集批次');
+    assert.equal(afterNoInitial, 1, '没有初始快照时进入面板不应清空既有书籍');
+    assert.equal(invalidMessages.length, 2, '两种非法快照都应被拒绝');
+    assert.match(invalidMessages[0], /阅读副本无效/, '结构非法应给出中文副本错误');
+    assert.match(invalidMessages[1], /阅读来源无效/, '单本书字段非法应给出中文来源错误');
+    assert.equal(preserved.books, 1, '非法快照抛错后不得清空已有书籍');
+    assert.equal(preserved.id, 'b1', '非法快照抛错后原书应保持不变');
+    assert.equal(preserved.progress, 42, '非法快照抛错后原进度应保持不变');
+    assert.equal(busyGuard.connected, false, '连接处理中重复点击不得改变连接状态');
+    assert.equal(busyGuard.requests, 0, '连接处理中重复点击不得发起任何请求');
+    assert.match(v1.message, /不含 \/v1/, '根地址含 /v1 应给出中文提示');
+    assert.equal(v1.requests, 0, '根地址非法时不得触达网络');
+    assert.match(token.message, /凭据/, '缺少 Token 应提示配置独立业务凭据');
+    assert.equal(token.requests, 0, '缺少 Token 时不得触达网络');
+    assert.equal(token.connected, false, '缺少 Token 时不得标记为已连接');
+    assert.match(insecure.message, /HTTPS/, '未开启开关的私网 HTTP 应被拒绝');
+    assert.equal(insecure.requests, 0, '私网 HTTP 未开启时不得触达网络');
+    assert.match(protocol, /身份/, '协议版本不符应给出身份错误');
+    assert.match(server, /身份/, '缺少 serverId 应给出身份错误');
+    assert.match(workspace, /身份/, '缺少 workspaceId 应给出身份错误');
+    assert.equal(unbound.connected, true, '尚未绑定服务时身份一致应连接成功');
+    assert.equal(unbound.id, 'b2', '连接成功应读取并展示服务端书籍');
+    assert.equal(unbound.token, '', '连接成功后应清空内存中的 Token');
+    assert.match(unbound.message, /已读取业务服务的阅读副本/, '连接成功应提示需要配置范围与授权');
+    assert.match(mismatch.message, /身份/, '已绑定服务的身份变化应明确失败');
+    assert.equal(mismatch.connected, false, '身份不一致时不得标记为已连接');
+    assert.equal(mismatch.books, 1, '身份不一致时不得清空本机书籍');
+    assert.equal(mismatch.id, 'b2', '身份不一致时不得覆盖本机副本');
+    assert.equal(bound.connected, true, '身份一致时应连接成功');
+    assert.equal(bound.token, '', '连接成功应清空 Token');
+    assert.equal(bound.id, 'b2', '连接成功应读取副本');
+    assert.deepEqual(bound.requests, ['/eye/v1/capabilities', '/eye/v1/reading'], '连接应只请求身份与阅读副本');
+    assert.match(badCopy.message, /阅读副本无效/, '服务端返回非法副本应给出中文错误');
+    assert.equal(badCopy.connected, false, '非法副本不得标记为已连接');
+    assert.equal(badCopy.id, 'b2', '非法副本不得覆盖上一次可用副本');
+    assert.match(offline.message, /业务请求未确认/, '网络失败应给出可读中文错误');
+    assert.equal(offline.connected, false, '网络失败不得标记为已连接');
+    assert.equal(offline.id, 'b2', '网络失败不得清空上次可用副本');
+    assert.match(refreshMessage, /先连接/, '未连接刷新应提示先连接独立业务服务');
+  });
+
+  await test('F12', '阅读周期与提问：可见范围授权、周期边界与失败保留输入', async ui => {
+    const requests = [];
+    let receipt = 'ok';
+    class Client {
+      async reading() {
+        return { books: [], policy: { enabled: false, bookIds: [], intervalHours: 24, timezone: 'Asia/Shanghai', consent: false },
+          sourceConfigured: true };
+      }
+      async readingPolicy(policy) { requests.push(['policy', policy]); return policy; }
+      async collectReading(request) { requests.push(['collect', request]); return { books: [], policy: {}, sourceConfigured: true }; }
+      async readingQuestion(request) { requests.push(['question', request]); return receipt === 'none' ? undefined : request; }
+      async readingAnswer(request) {
+        requests.push(['answer', request]);
+        if (receipt === 'fail') { throw new Error('回答未确认，请查询原操作'); }
+        return { id: request.operationId, state: 'completed' };
+      }
+    }
+    const h = openReading({ BusinessClient: Client });
+    const client = new Client();
+    h.client = client; h.identity = { protocolVersion: 1, serverId: 's1', workspaceId: 'w1' };
+    await ui.click('未连接时点击「一键采集/整理」', () => { h.client = undefined; return h.act(c => h.collect(c)); });
+    const noClient = { requests: requests.length, message: h.message };
+    h.client = client; h.busy = true;
+    await ui.click('处理中再次点击「一键采集/整理」', () => h.act(c => h.collect(c)));
+    const busy = requests.length;
+    h.busy = false;
+    h.bookIds = 'b1, b2 ,'; h.interval = '12'; h.timezone = ' Asia/Shanghai '; h.consent = true; h.scheduleEnabled = true;
+    await ui.click('保存可见范围与周期', () => h.act(c => h.savePolicy(c)));
+    const policy = JSON.parse(JSON.stringify(requests[0][1]));
+    h.bookIds = 'b9'; h.interval = '720';
+    await ui.click('确认当前范围后点击「一键采集/整理」', () => h.act(c => h.collect(c)));
+    const collect = { order: requests.slice(1).map((item) => item[0]).join(','),
+      policy: JSON.parse(JSON.stringify(requests[1][1])), cycle: requests[2][1].cycleId, message: h.message };
+
+    h.consent = false; h.scheduleEnabled = false;
+    const beforeUnconsented = requests.length;
+    await ui.click('未勾选同意时点击「一键采集/整理」', () => h.act(c => h.collect(c)));
+    const unconsented = { requests: requests.length - beforeUnconsented,
+      policy: JSON.parse(JSON.stringify(requests[requests.length - 2][1])), message: h.message };
+
+    const bounds = [];
+    for (const value of ['0', '1', '720', '721', 'abc']) {
+      h.interval = value;
+      await ui.click('周期输入「' + value + '」后保存', () => h.act(c => h.savePolicy(c)));
+      bounds.push(requests[requests.length - 1][1].intervalHours);
+    }
+
+    const questions = () => requests.filter((item) => item[0] === 'question').length;
+    h.selectedBook = ''; h.selectedEntry = ''; h.questionText = 'X'; h.quote = '片段';
+    await ui.click('未选择来源笔记时点击「提问」', () => h.act(c => h.ask(c)));
+    const missing = { message: h.message, questions: questions() };
+    h.selectedBook = 'b1'; h.selectedEntry = 'e1'; h.questionText = ''; h.quote = '片段';
+    await ui.click('未填写疑问内容时点击「提问」', () => h.act(c => h.ask(c)));
+    const emptyText = { message: h.message, questions: questions() };
+    h.questionText = 'x'.repeat(1001);
+    await ui.click('疑问超过 1000 字时点击「提问」', () => h.act(c => h.ask(c)));
+    const longText = { message: h.message, questions: questions() };
+    h.questionText = '为什么？'; h.quote = '';
+    await ui.click('未确认连续原文片段时点击「提问」', () => h.act(c => h.ask(c)));
+    const noQuote = { message: h.message, questions: questions() };
+    h.quote = 'x'.repeat(1501);
+    await ui.click('原文片段超过 1500 字时点击「提问」', () => h.act(c => h.ask(c)));
+    const longQuote = { message: h.message, questions: questions() };
+    h.quote = '连续原文片段';
+    await ui.click('确认片段并点击「提问」', () => h.act(c => h.ask(c)));
+    const asked = { questions: questions(), text: h.questionText,
+      question: requests[requests.length - 2][1], answer: requests[requests.length - 1][1], message: h.message };
+    await ui.click('成功提问后立即再次点击「提问」', () => h.act(c => h.ask(c)));
+    const resubmit = { questions: questions(), text: h.questionText, message: h.message };
+
+    receipt = 'none';
+    const answersBefore = requests.filter((item) => item[0] === 'answer').length;
+    h.questionText = '没有回执的疑问';
+    await ui.click('提问没有回执时点击「提问」', () => h.act(c => h.ask(c)));
+    const noReceipt = { text: h.questionText, message: h.message,
+      answers: requests.filter((item) => item[0] === 'answer').length - answersBefore };
+    receipt = 'fail';
+    h.questionText = '会失败的疑问';
+    await ui.click('回答未确认时点击「提问」', () => h.act(c => h.ask(c)));
+    const answerFailed = { text: h.questionText, message: h.message };
+
+    assert.equal(noClient.requests, 0, '未连接时点击采集不得发起任何请求');
+    assert.equal(busy, 0, '处理中重复点击采集不得发起任何请求');
+    assert.deepEqual(policy, { enabled: true, bookIds: ['b1', 'b2'], intervalHours: 12, timezone: 'Asia/Shanghai', consent: true },
+      '保存范围应去空白、丢弃空 ID 并携带周期与同意');
+    assert.equal(collect.order, 'policy,collect', '采集必须先保存当前可见范围再请求采集');
+    assert.deepEqual(collect.policy.bookIds, ['b9'], '采集应使用当前可见范围而不是旧设置');
+    assert.equal(typeof collect.cycle, 'string', '采集请求应携带批次 ID');
+    assert.ok(collect.cycle.length > 0, '采集批次 ID 不应为空');
+    assert.match(collect.message, /已读取并保存实际结果/, '成功后应提示已保存实际结果');
+    assert.equal(unconsented.requests, 2, '未勾选同意时客户端仍会提交范围并请求采集');
+    assert.equal(unconsented.policy.consent, false, '未勾选同意时上报的同意状态应为 false');
+    assert.match(unconsented.message, /已读取并保存实际结果/, '客户端未按同意状态拦截，同意校验由业务服务端完成');
+    assert.deepEqual(bounds, [0, 1, 720, 721, NaN], '客户端按原样转发周期数值，1–720 边界由业务服务校验');
+    assert.match(missing.message, /选择来源笔记/, '未选来源应提示选择来源笔记');
+    assert.equal(missing.questions, 0, '未选来源不得提交问题');
+    assert.match(emptyText.message, /选择来源笔记/, '空疑问应提示填写 1–1000 字');
+    assert.equal(emptyText.questions, 0, '空疑问不得提交问题');
+    assert.match(longText.message, /选择来源笔记/, '疑问超过 1000 字应被拒绝');
+    assert.equal(longText.questions, 0, '超长疑问不得提交问题');
+    assert.match(noQuote.message, /原始来源片段/, '未确认片段应提示 1–1500 字连续原文');
+    assert.equal(noQuote.questions, 0, '未确认片段不得提交问题');
+    assert.match(longQuote.message, /原始来源片段/, '片段超过 1500 字应被拒绝');
+    assert.equal(longQuote.questions, 0, '超长片段不得提交问题');
+    assert.equal(asked.questions, 1, '合法提问应恰好提交一个问题');
+    assert.equal(asked.question.bookId, 'b1', '问题应记录所选书籍');
+    assert.equal(asked.question.entryId, 'e1', '问题应记录所选条目');
+    assert.equal(asked.question.quote, '连续原文片段', '问题应记录用户确认的连续原文片段');
+    assert.equal(asked.answer.questionId, asked.question.id, '回答必须沿用刚创建的问题 ID');
+    assert.equal(asked.answer.input, '为什么？', '回答输入应为用户填写的疑问正文');
+    assert.equal(asked.text, '', '提问成功后应清空输入框');
+    assert.match(asked.message, /已读取并保存实际结果/, '提问成功应提示已保存实际结果');
+    assert.equal(resubmit.questions, 1, '同一问题在输入被清空后不得重复提交');
+    assert.equal(resubmit.text, '', '重复点击后输入仍应为空');
+    assert.equal(noReceipt.answers, 0, '没有回执时不得伪造一次回答提交');
+    assert.equal(noReceipt.text, '没有回执的疑问', '没有回执应保留疑问输入以便重试');
+    assert.doesNotMatch(noReceipt.message, /已读取并保存实际结果/, '没有回执不得显示成功提示');
+    assert.match(answerFailed.message, /回答未确认/, '回答失败应回显服务错误');
+    assert.equal(answerFailed.text, '会失败的疑问', '回答失败应保留输入');
+  });
+
+  await test('F13', '业务面板：本机副本读取、连接前置与身份隔离', async ui => {
+    const httpLog = [];
+    let identityRoute = { responseCode: 200, result: JSON.stringify({ protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }) };
+    const kit = { http: { RequestMethod: { GET: 'GET', POST: 'POST' }, HttpDataType: { STRING: 'string' },
+      createHttp: () => ({
+        async request(url) {
+          httpLog.push(url);
+          if (url.endsWith('/capabilities')) { return identityRoute; }
+          throw new Error('未预期请求 ' + url);
+        },
+        destroy() { httpLog.push('destroy'); }
+      }) } };
+    const Client = businessClient(kit);
+    let existingState;
+    let loadState;
+    let existingError;
+    const coordinators = [];
+    class Repository {
+      async existing() { if (existingError) { throw existingError; } return existingState; }
+      async load(_context, initial) { return loadState || initial; }
+      async save() {}
+    }
+    class Coordinator {
+      constructor(state, repository, client) { this.state = state; this.repository = repository; this.client = client; coordinators.push(this); }
+      current() { return this.state; }
+    }
+    const h = businessPanelA({ dayKey: w.dayKey, newId: w.newId, projectBrief: w.projectBrief,
+      newBusinessState: businessSync.newBusinessState, assertBusinessIdentity: businessSync.assertBusinessIdentity,
+      BusinessClient: Client, BusinessRepository: Repository, BusinessCoordinator: Coordinator });
+    Object.assign(h, businessPanelFields());
+
+    await ui.click('进入业务面板（本机无副本）', async () => { h.aboutToAppear(); await tick(); });
+    const noReplica = { localReady: h.localReady, coordinators: coordinators.length };
+    const project = { id: 'p1', name: '学 ArkTS', goal: '掌握状态管理', managedBy: 'manual', nextStep: '读文档' };
+    h.project = project; existingState = undefined;
+    await ui.click('从项目进入业务面板', async () => { h.aboutToAppear(); await tick(); });
+    const projectEntry = { needId: h.needId, prompt: h.prompt };
+
+    existingState = businessSync.newBusinessState({ protocolVersion: 1, serverId: 's9', workspaceId: 'w9' }, 'd9');
+    await ui.click('重新进入（本机已有业务副本）', async () => { h.loadOffline(); await tick(); });
+    const loaded = { localReady: h.localReady, serverId: h.replica.serverId, coordinators: coordinators.length, status: h.status, busy: h.busy };
+    existingError = new Error('业务副本损坏，禁止覆盖'); h.localReady = false;
+    await ui.click('本机副本损坏时进入', async () => { h.loadOffline(); await tick(); });
+    const broken = { status: h.status, busy: h.busy, localReady: h.localReady, serverId: h.replica.serverId };
+    existingError = undefined;
+
+    h.busy = true;
+    await ui.click('处理中再次点击「连接独立业务服务」', () => h.connect());
+    const busyGuard = httpLog.length;
+    h.busy = false;
+    h.root = 'https://example.org/v1'; h.token = 'tk';
+    await ui.click('根地址含 /v1 时点击连接', () => h.connect());
+    const v1 = { status: h.status, requests: httpLog.length };
+    h.root = 'https://example.org'; h.token = '';
+    await ui.click('未填 Token 时点击连接', () => h.connect());
+    const token = { status: h.status, requests: httpLog.length, connected: h.connected };
+    h.root = 'http://192.168.1.9:8080'; h.token = 'tk'; h.allowHttp = false;
+    await ui.click('未开启私网 HTTP 时点击连接', () => h.connect());
+    const insecure = { status: h.status, requests: httpLog.length };
+
+    const beforeMismatch = h.replica;
+    const coordinatorsBefore = coordinators.length;
+    loadState = businessSync.newBusinessState({ protocolVersion: 1, serverId: 'other', workspaceId: 'w1' }, 'd1');
+    h.root = 'https://example.org'; h.allowHttp = false; h.token = 'tk';
+    await ui.click('服务身份与本机副本不一致时点击连接', () => h.connect());
+    const mismatch = { status: h.status, connected: h.connected, sameReplica: h.replica === beforeMismatch, coordinators: coordinators.length };
+
+    loadState = undefined;
+    await ui.click('身份一致时点击连接', () => h.connect());
+    const bound = { connected: h.connected, localReady: h.localReady, token: h.token, status: h.status,
+      serverId: h.replica.serverId, workspaceId: h.replica.workspaceId };
+
+    const acts = [];
+    h.coordinator = undefined; h.busy = false;
+    await ui.click('未连接时点击「同步业务副本」', () => h.act(async () => { acts.push('不应执行'); }));
+    const noCoordinator = acts.length;
+    h.busy = true;
+    await ui.click('处理中重复点击「同步业务副本」', () => h.act(async () => { acts.push('不应执行'); }));
+    const busyAct = acts.length;
+    h.busy = false;
+    h.coordinator = { current: () => h.replica, edit: async () => {} };
+    await ui.click('点击「同步业务副本」', () => h.act(async () => { acts.push('同步'); }));
+    const actDone = { acts: acts.join(','), status: h.status, busy: h.busy };
+    await ui.click('同步服务未推进时点击「同步业务副本」', () => h.act(async () => { throw new Error('业务服务同步未推进'); }));
+    const actFailed = { status: h.status, busy: h.busy };
+
+    assert.equal(noReplica.localReady, false, '本机没有副本时不应标记为可离线使用');
+    assert.equal(noReplica.coordinators, 0, '本机没有副本时不应创建协调器');
+    assert.equal(projectEntry.needId, 'project-p1', '从项目进入应绑定稳定的项目会话标识');
+    assert.equal(projectEntry.prompt, w.projectBrief(project), '从项目进入应预填可编辑的项目摘要');
+    assert.equal(loaded.localReady, true, '读取到本机副本后应可离线使用');
+    assert.equal(loaded.serverId, 's9', '应读取本机副本的服务身份');
+    assert.equal(loaded.coordinators, 1, '读取到本机副本后应建立协调器');
+    assert.match(loaded.status, /已读取本机业务副本/, '读取成功应说明可离线新增计划');
+    assert.equal(loaded.busy, false, '读取结束应复位忙碌状态');
+    assert.match(broken.status, /业务副本损坏/, '副本读取失败应就地显示中文错误');
+    assert.equal(broken.busy, false, '副本读取失败也应复位忙碌状态');
+    assert.equal(broken.localReady, false, '副本读取失败不得标记为可用');
+    assert.equal(broken.serverId, 's9', '副本读取失败不得清空已加载的本机副本');
+    assert.equal(busyGuard, 0, '连接处理中重复点击不得触达网络');
+    assert.match(v1.status, /不含 \/v1/, '根地址含 /v1 应给出中文提示');
+    assert.equal(v1.requests, 0, '根地址非法时不得触达网络');
+    assert.match(token.status, /凭据/, '缺少 Token 应提示配置独立业务凭据');
+    assert.equal(token.requests, 0, '缺少 Token 时不得触达网络');
+    assert.equal(token.connected, false, '缺少 Token 时不得标记为已连接');
+    assert.match(insecure.status, /HTTPS/, '未开启开关的私网 HTTP 应被拒绝');
+    assert.equal(insecure.requests, 0, '私网 HTTP 未开启时不得触达网络');
+    assert.match(mismatch.status, /身份已变化/, '身份不一致应显式失败');
+    assert.equal(mismatch.connected, false, '身份不一致时不得标记为已连接');
+    assert.equal(mismatch.sameReplica, true, '身份不一致时不得用新副本覆盖本机副本');
+    assert.equal(mismatch.coordinators, coordinatorsBefore, '身份不一致时不得建立绑定协调器');
+    assert.equal(bound.connected, true, '身份一致时应绑定成功');
+    assert.equal(bound.localReady, true, '绑定成功后应可离线使用');
+    assert.equal(bound.token, '', '绑定成功后应清空内存 Token');
+    assert.equal(bound.serverId, 's1', '绑定后副本应记录服务身份');
+    assert.equal(bound.workspaceId, 'w1', '绑定后副本应记录业务空间');
+    assert.match(bound.status, /已绑定业务空间/, '绑定成功应说明只有点击同步才会上传');
+    assert.equal(noCoordinator, 0, '未连接时点击同步不得执行任何动作');
+    assert.equal(busyAct, 0, '处理中重复点击同步不得执行任何动作');
+    assert.equal(actDone.acts, '同步', '已连接时点击同步应执行一次动作');
+    assert.match(actDone.status, /本次操作已保存/, '同步成功应提示以列表状态为准');
+    assert.equal(actDone.busy, false, '动作结束应复位忙碌状态');
+    assert.match(actFailed.status, /业务服务同步未推进/, '同步失败应回显服务错误');
+    assert.equal(actFailed.busy, false, '同步失败也应复位忙碌状态');
+  });
+
+  await test('F14', '业务面板：新增计划、墓碑删除与发送输入边界', async ui => {
+    const globals = { dayKey: w.dayKey, newId: w.newId, projectBrief: w.projectBrief,
+      newBusinessState: businessSync.newBusinessState, assertBusinessIdentity: businessSync.assertBusinessIdentity };
+    const a = businessPanelA(globals);
+    Object.assign(a, businessPanelFields());
+    const Coordinator = load('services/BusinessCoordinator.ets', { '../core/BusinessSync': businessSync }).BusinessCoordinator;
+    const persisted = [];
+    const state = businessSync.newBusinessState({ protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }, 'd1');
+    a.coordinator = new Coordinator(state, { save: async (next) => { persisted.push(next); } }, {});
+    a.replica = a.coordinator.current();
+    await ui.click('空标题点击「保存到待同步列表」', () => a.act(c => a.createPlan(c)));
+    const blank = { outbox: a.replica.outbox.length, persisted: persisted.length, status: a.status, title: a.title };
+    a.title = 'x'.repeat(201);
+    await ui.click('标题超过 200 字点击「保存到待同步列表」', () => a.act(c => a.createPlan(c)));
+    const longTitle = { outbox: a.replica.outbox.length, status: a.status };
+    a.title = '  读书计划  ';
+    await ui.click('填写今日计划后点击「保存到待同步列表」', () => a.act(c => a.createPlan(c)));
+    const created = { outbox: a.replica.outbox.length, persisted: persisted.length,
+      mutation: JSON.parse(JSON.stringify(a.replica.outbox[0])), title: a.title, status: a.status };
+
+    const b = businessPanelB({ newId: w.newId });
+    Object.assign(b, businessPanelFields());
+    const tombstones = [];
+    b.replica = businessSync.newBusinessState({ protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }, 'd1');
+    b.replica.entities.push({ kind: 'plan', id: 'plan-1', revision: 3, deleted: false, payload: { title: '旧计划' }, origin: 'local' });
+    b.coordinator = { edit: async (mutation) => { tombstones.push(mutation); }, current: () => b.replica };
+    const entity = b.replica.entities[0];
+    await ui.click('点击「删除此计划」', async () => { await b.deletePlan(b.coordinator, entity); });
+    const deleted = { mutation: JSON.parse(JSON.stringify(tombstones[0])), entities: b.replica.entities.length,
+      live: b.replica.entities.filter((item) => !item.deleted).length };
+
+    const writes = [];
+    b.project = { id: 'p2', name: '新项目', goal: '目标', managedBy: 'manual', nextStep: '' };
+    b.replica = businessSync.newBusinessState({ protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }, 'd1');
+    b.coordinator = { edit: async (mutation) => { writes.push(mutation); }, current: () => b.replica };
+    await ui.click('确认将当前项目加入待同步列表（本机尚无确认版本）', async () => { await b.exportProject(b.coordinator); });
+    const exported = { baseRevision: writes[0].baseRevision, kind: writes[0].kind, name: writes[0].payload.name };
+
+    b.needId = 'stable-id'; b.prompt = '   ';
+    await ui.click('消息为空点击「保存意图并发送」', async () => {
+      await assert.rejects(() => b.send(b.coordinator), /1–4000 字/);
+    });
+    b.prompt = 'x'.repeat(4001);
+    await ui.click('消息超过 4000 字点击「保存意图并发送」', async () => {
+      await assert.rejects(() => b.send(b.coordinator), /1–4000 字/);
+    });
+
+    assert.equal(blank.outbox, 0, '空标题不得加入待同步列表');
+    assert.equal(blank.persisted, 0, '空标题不得写入本机副本');
+    assert.match(blank.status, /计划标题请输入 1–200 字/, '空标题应给出中文校验提示');
+    assert.equal(longTitle.outbox, 0, '超长标题不得加入待同步列表');
+    assert.match(longTitle.status, /计划标题请输入 1–200 字/, '超长标题应给出中文校验提示');
+    assert.equal(created.outbox, 1, '合法计划应恰好进入一次待同步列表');
+    assert.equal(created.persisted, 1, '合法计划应恰好持久化一次本机副本');
+    assert.equal(created.mutation.kind, 'plan', '新增计划应写入 plan 类型变更');
+    assert.equal(created.mutation.deleted, false, '新增计划不应标记为删除');
+    assert.equal(created.mutation.baseRevision, 0, '新增计划的修改基线应为 0');
+    assert.equal(created.mutation.deviceId, 'd1', '变更应携带本机设备标识');
+    assert.equal(created.mutation.payload.title, '读书计划', '计划标题应去除首尾空白');
+    assert.equal(created.mutation.payload.date, w.dayKey(new Date()), '计划日期应为今天');
+    assert.equal(created.mutation.payload.status, 'todo', '新增计划状态应为待完成');
+    assert.equal(created.title, '', '加入待同步列表后应清空输入');
+    assert.match(created.status, /本次操作已保存/, '新增成功应提示同步状态以列表为准');
+    assert.equal(deleted.mutation.deleted, true, '「删除此计划」应写入墓碑而不是物理删除');
+    assert.equal(deleted.mutation.kind, 'plan', '墓碑应保留对象类型');
+    assert.equal(deleted.mutation.id, 'plan-1', '墓碑应指向被删除的计划');
+    assert.equal(deleted.mutation.baseRevision, 3, '墓碑应携带原确认版本作为基线');
+    assert.deepEqual(deleted.mutation.payload, {}, '墓碑不应携带业务字段');
+    assert.equal(deleted.entities, 1, '点击删除不得物理移除本机副本中的对象');
+    assert.equal(deleted.live, 1, '墓碑写入期间本机对象仍在列表中，等待同步确认');
+    assert.equal(exported.baseRevision, 0, '本机尚无确认版本时项目变更基线应为 0');
+    assert.equal(exported.kind, 'project', '项目导出应写入 project 类型变更');
+    assert.equal(exported.name, '新项目', '项目导出应携带项目名称');
+  });
+
+  await test('F15', '项目面板：可写状态、草稿键隔离与草稿复用', async ui => {
+    const base = { id: 'p1', name: '旧名', goal: '旧目标', managedBy: 'manual', nextStep: '', kind: 'learning',
+      status: 'active', criteria: '旧标准', milestones: [], reviews: [] };
+    const active = openPanel({ project: base, server: 'server-a' });
+    const archived = openPanel({ project: { ...base, status: 'archived' }, server: 'server-a' });
+    const readonly = openPanel({ project: base, server: 'server-a', writable: false });
+    const fresh = openPanel({ server: 'server-a' });
+    const otherServer = openPanel({ project: base, server: 'server-b' });
+    const canEdit = { active: active.h.canEdit(), archived: archived.h.canEdit(), readonly: readonly.h.canEdit(), fresh: fresh.h.canEdit() };
+    const keys = { active: active.h.draftKey(), other: otherServer.h.draftKey(), fresh: fresh.h.draftKey() };
+
+    const shared = new Map();
+    const first = openPanel({ project: base, server: 'server-a', drafts: shared });
+    await ui.click('第一次打开项目详情', () => { first.h.aboutToAppear(); });
+    const firstOpen = { name: first.h.draft.name, editing: first.h.editing, drafts: shared.size };
+    await ui.click('改名后返回（保留草稿）', () => { first.h.draft.name = '未保存的新名'; first.h.remember(); });
+    const remembered = shared.get('server-a/project/p1').name;
+    const second = openPanel({ project: base, server: 'server-a', drafts: shared });
+    await ui.click('再次打开同一项目', () => { second.h.aboutToAppear(); });
+    const reopened = { name: second.h.draft.name, stored: second.space.projects[0].name, editing: second.h.editing };
+    const other = openPanel({ project: base, server: 'server-b', drafts: shared });
+    await ui.click('切换到另一台服务器打开同一项目', () => { other.h.aboutToAppear(); });
+    const isolated = { name: other.h.draft.name, key: other.h.draftKey() };
+    const newDraft = openPanel({ server: 'server-a', drafts: shared });
+    await ui.click('打开新建项目表单', () => { newDraft.h.aboutToAppear(); });
+    const created = { name: newDraft.h.draft.name, editing: newDraft.h.editing, key: newDraft.h.draftKey() };
+
+    const failing = openPanel({ server: 'server-a' });
+    failing.h.draft.name = '待保存的项目';
+    let saveCalls = 0;
+    failing.h.save = async () => { saveCalls++; return false; };
+    await ui.click('保存项目（本机写入失败）', async () => { await failing.h.submit(); });
+    const failed = { saveCalls: saveCalls, opened: failing.opened.length, editing: failing.h.editing, drafts: failing.h.drafts.size };
+
+    const existing = openPanel({ project: base, server: 'server-a' });
+    await ui.click('编辑已有项目名称并保存', async () => { existing.h.draft.name = '新名字'; await existing.h.submit(); });
+    const saved = { opened: existing.opened.length, editing: existing.h.editing, name: existing.space.projects[0].name,
+      drafts: existing.h.drafts.size, saves: existing.saved.length };
+
+    const empty = openPanel();
+    const emptySaves = empty.saved.length;
+    await ui.click('无项目时点击状态、里程碑与复盘', async () => {
+      await empty.h.changeStatus('paused'); await empty.h.addMilestone(); await empty.h.addReview();
+      await empty.h.toggleMilestone({ id: 'm1', title: 'x', dueDate: '', done: false });
+    });
+    const guarded = { saves: empty.saved.length - emptySaves, editing: empty.h.editing };
+
+    const done = openPanel({ project: { ...base }, server: 'server-a' });
+    await ui.click('填写达成依据并标记达成', async () => { done.h.draft.review = '演示通过'; await done.h.changeStatus('completed'); });
+    const completed = { status: done.space.projects[0].status, review: done.h.draft.review,
+      remembered: done.h.drafts.get('server-a/project/p1').review };
+
+    assert.equal(canEdit.active, true, '可写且进行中的项目应允许编辑');
+    assert.equal(canEdit.archived, false, '已归档项目不应允许编辑');
+    assert.equal(canEdit.readonly, false, '只读进入的项目不应允许编辑');
+    assert.equal(canEdit.fresh, true, '新建项目表单应允许保存');
+    assert.equal(keys.active, 'server-a/project/p1', '草稿键应包含服务器与项目 ID');
+    assert.equal(keys.other, 'server-b/project/p1', '切换服务器应得到不同的草稿键');
+    assert.equal(keys.fresh, 'server-a/project/new', '新建项目应使用独立的草稿键');
+    assert.equal(firstOpen.name, '旧名', '首次打开应以正式项目初始化草稿');
+    assert.equal(firstOpen.editing, false, '打开已有项目不应直接进入编辑态');
+    assert.equal(firstOpen.drafts, 0, '首次打开不应产生新草稿');
+    assert.equal(remembered, '未保存的新名', '返回时应按草稿键保留未保存修改');
+    assert.equal(reopened.name, '未保存的新名', '再次打开同一项目应复用保留的草稿');
+    assert.equal(reopened.stored, '旧名', '复用草稿不得改写本机正式数据');
+    assert.equal(isolated.name, '旧名', '切换服务器后不得串用另一台服务器的草稿');
+    assert.equal(isolated.key, 'server-b/project/p1', '切换服务器后草稿键应随之变化');
+    assert.equal(created.editing, true, '新建项目表单应处于编辑态');
+    assert.equal(created.name, '', '新建项目草稿应为空而不是复用已有项目草稿');
+    assert.equal(created.key, 'server-a/project/new', '新建项目草稿键不应与他人冲突');
+    assert.equal(failed.saveCalls, 1, '保存失败仍应尝试一次本机写入');
+    assert.equal(failed.opened, 0, '保存失败不得进入新建项目详情');
+    assert.equal(failed.editing, true, '保存失败应停留在编辑态保留输入');
+    assert.equal(failed.drafts, 0, '保存失败不得清理或新增草稿');
+    assert.equal(saved.opened, 0, '保存已有项目不应回调新建入口');
+    assert.equal(saved.editing, false, '保存成功后应退出编辑态');
+    assert.equal(saved.name, '新名字', '保存应把草稿写入正式项目');
+    assert.equal(saved.drafts, 0, '保存成功后应清理对应草稿');
+    assert.equal(saved.saves, 1, '保存成功应恰好写入一次本机');
+    assert.equal(guarded.saves, 0, '没有项目时状态、里程碑与复盘操作不得写入本机');
+    assert.equal(guarded.editing, true, '无项目面板应保持新建编辑态');
+    assert.equal(completed.status, 'completed', '标记达成应转为已达成');
+    assert.equal(completed.review, '', '标记达成后应清空达成依据输入');
+    assert.equal(completed.remembered, '', '标记达成后应把已清空的依据写回草稿');
+  });
+
+  await test('F16', '业务面板：同步失败保留待确认编辑并支持重建副本', async ui => {
+    const Coordinator = load('services/BusinessCoordinator.ets', { '../core/BusinessSync': businessSync }).BusinessCoordinator;
+    const state = businessSync.newBusinessState({ protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }, 'd1');
+    businessSync.enqueueBusinessMutation(state, { deviceId: 'd1', mutationId: 'm1', kind: 'plan', id: 'plan-1',
+      baseRevision: 0, deleted: false, payload: { title: '待同步计划' } });
+    let mode = 'fail';
+    const calls = [];
+    const saved = [];
+    const transport = {
+      async identity() { return { protocolVersion: 1, serverId: 's1', workspaceId: 'w1' }; },
+      async mutate(mutation) {
+        calls.push('mutate:' + mutation.mutationId);
+        if (mode === 'fail') { throw new Error('业务服务同步未推进，请保留待确认编辑'); }
+        return { status: 'accepted', entity: { kind: mutation.kind, id: mutation.id, revision: 1, deleted: false,
+          payload: mutation.payload, origin: 'remote' } };
+      },
+      async pull(cursor) { calls.push('pull:' + cursor); return { entities: [], cursor: cursor, hasMore: false }; },
+      async snapshot() { calls.push('snapshot'); return { entities: [], cursor: 9, hasMore: false }; }
+    };
+    const coordinator = new Coordinator(state, { save: async (next) => { saved.push(next); } }, transport);
+    const h = businessPanelA({ dayKey: w.dayKey, newId: w.newId, projectBrief: w.projectBrief,
+      newBusinessState: businessSync.newBusinessState, assertBusinessIdentity: businessSync.assertBusinessIdentity });
+    Object.assign(h, businessPanelFields({ coordinator: coordinator, replica: coordinator.current(),
+      localReady: true, connected: true }));
+
+    await ui.click('已连接后点击「同步业务副本」（服务未推进）', () => h.act(c => c.synchronize()));
+    const failed = { status: h.status, outbox: h.replica.outbox.length, saved: saved.length, calls: calls.join(',') };
+
+    mode = 'ok';
+    await ui.click('服务恢复后再次点击「同步业务副本」', () => h.act(c => c.synchronize()));
+    const synced = { outbox: h.replica.outbox.length, cursor: h.replica.cursor, status: h.status,
+      entity: h.replica.entities[0].payload.title };
+
+    await ui.click('点击「重建已确认副本（保留待确认编辑）」', () => h.act(c => c.synchronize(true)));
+    const rebuilt = { cursor: h.replica.cursor, snapshots: calls.filter((item) => item === 'snapshot').length, status: h.status };
+
+    assert.match(failed.status, /业务服务同步未推进/, '同步失败应回显服务错误');
+    assert.equal(failed.outbox, 1, '同步失败必须保留待确认编辑');
+    assert.equal(failed.saved, 0, '同步失败不得写入新的本机副本');
+    assert.equal(failed.calls, 'mutate:m1', '同步应先发送待确认编辑再拉取');
+    assert.equal(synced.outbox, 0, '同步成功应清空已确认的待同步编辑');
+    assert.equal(synced.cursor, 0, '拉取到游标 0 时应记录该游标');
+    assert.equal(synced.entity, '待同步计划', '同步成功应写入远端确认实体');
+    assert.match(synced.status, /本次操作已保存/, '同步成功应提示状态以列表为准');
+    assert.equal(rebuilt.cursor, 9, '重建应使用快照游标替换本机游标');
+    assert.equal(rebuilt.snapshots, 1, '重建应只请求一次快照');
+    assert.match(rebuilt.status, /本次操作已保存/, '重建成功应提示状态以列表为准');
   });
 
   console.log(`\n${passed} interactive flow tests passed; Index.ets methods driven by simulated clicks, platform APIs mocked, not device acceptance.`);

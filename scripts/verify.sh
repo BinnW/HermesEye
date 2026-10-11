@@ -163,6 +163,8 @@ should_run && run_stage standards 'coding and logging standards (scripts/check-s
   "$DEVECO_NODE" scripts/check-standards.cjs --json "$EVIDENCE_DIR/standards.json"
 should_run && run_stage standards-self-test 'standards gate unit tests (scripts/test-standards.cjs)' \
   "$DEVECO_NODE" scripts/test-standards.cjs
+should_run && run_stage resources 'resource reference and base/dark pairing (scripts/test-resources.cjs)' \
+  "$DEVECO_NODE" scripts/test-resources.cjs
 should_run && run_stage coverage 'branch coverage floors (scripts/coverage.cjs)' \
   "$DEVECO_NODE" scripts/coverage.cjs --json "$EVIDENCE_DIR/coverage.json"
 
@@ -182,6 +184,10 @@ if [ -f scripts/test-ui-flows.cjs ]; then
 fi
 should_run && run_stage backend-service 'SQLite business service and loopback HTTP tests' \
   python3 -m unittest discover -s backend/tests -v
+if [ -f scripts/python-coverage.cjs ]; then
+  should_run && run_stage backend-coverage 'backend line coverage floors (scripts/python-coverage.cjs)' \
+    "$DEVECO_NODE" scripts/python-coverage.cjs --json "$EVIDENCE_DIR/backend-coverage.json"
+fi
 
 # ---------------------------------------------------------------- compile
 if [ "$SKIP_BUILD" -eq 0 ]; then

@@ -306,6 +306,26 @@ async function main() {
     status = 200; failRequest = true;
     await assert.rejects(() => client.snapshot(), /不要重复发送/);
   });
+  await test('reading adapter keeps collection, policy, question and answer requests separate', async () => {
+    const requests = [];
+    const http = { RequestMethod: { POST: 'POST', GET: 'GET' }, HttpDataType: { STRING: 'STRING' },
+      createHttp() { return { async request(url, options) {
+        requests.push({ url, method: options.method, body: options.extraData });
+        return { responseCode: 200, result: '{}' };
+      }, destroy() {} }; } };
+    const { BusinessClient } = load('services/BusinessClient.ets', { '@kit.NetworkKit': { http }, '../core/Domain': load('core/Domain.ts') });
+    const c = new BusinessClient('https://example.org', 'credential');
+    await c.reading();
+    const policy = { enabled: false, bookIds: ['book'], intervalHours: 24, timezone: 'Asia/Shanghai', consent: true };
+    await c.readingPolicy(policy); await c.collectReading({ cycleId: 'cycle1' });
+    await c.readingQuestion({ id: 'q1', bookId: 'book', entryId: 'e1', text: 'question' });
+    await c.readingAnswer({ questionId: 'q1', operationId: 'o1', input: 'question' });
+    assert.deepEqual(requests.map(r => r.url.split('/eye/v1')[1]),
+      ['/reading', '/reading/policy', '/reading/collect', '/reading/questions', '/reading/answer']);
+    assert.deepEqual(requests.map(r => r.method), ['GET', 'POST', 'POST', 'POST', 'POST']);
+    assert.deepEqual(JSON.parse(requests[1].body), policy);
+    assert.deepEqual(JSON.parse(requests[4].body), { questionId: 'q1', operationId: 'o1', input: 'question' });
+  });
   function businessRepository(stage = '', code = 0) {
     const files = new Map();
     const control = { stage, code, writeCode: undefined, closeCode: undefined, closed: 0 };

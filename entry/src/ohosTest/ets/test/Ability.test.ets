@@ -26,7 +26,7 @@ export default function abilityTest() {
       await reading.click();
       await driver.delayMs(300);
       await driver.assertComponentExist(ON.id('main-navigation-2'));
-      await driver.assertComponentExist(ON.text('阅读位置与内容产出分开统计，不评估理解程度。'));
+      await driver.assertComponentExist(ON.text('授权采集笔记、周期整理与逐条疑问讨论，不评估理解程度。'));
       const today = await driver.findComponent(ON.id('main-navigation-0'));
       await today.click();
     });
@@ -38,7 +38,7 @@ export default function abilityTest() {
       await driver.delayMs(300);
       const scroll = await driver.findComponent(ON.id('workspace-scroll'));
       const before = await scroll.getBounds();
-      const name = await scroll.scrollSearch(ON.id('input-项目名称'));
+      const name = await scroll.scrollSearch(ON.id('project-name'));
       await name.click();
       await driver.delayMs(800);
       expect((await driver.findComponent(ON.id('main-navigation-0'))) === null).assertTrue();
@@ -46,10 +46,10 @@ export default function abilityTest() {
       expect(reduced.bottom < before.bottom).assertTrue();
       await name.inputText('Keyboard regression draft');
       const goal = await (await driver.findComponent(ON.id('workspace-scroll')))
-        .scrollSearch(ON.id('input-目标 / 完成标准'));
+        .scrollSearch(ON.id('project-goal'));
       await goal.click();
       await goal.inputText('First line\nSecond line\nThird line\nFourth line\nFifth line\nSixth line');
-      const submit = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.text('创建项目'));
+      const submit = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('project-save'));
       const buttonBounds = await submit.getBounds();
       const viewport = await (await driver.findComponent(ON.id('workspace-scroll'))).getBounds();
       expect(buttonBounds.top >= viewport.top && buttonBounds.bottom <= viewport.bottom).assertTrue();
@@ -59,7 +59,7 @@ export default function abilityTest() {
       await driver.assertComponentExist(ON.id('main-navigation-0'));
       const restored = await (await driver.findComponent(ON.id('workspace-scroll'))).getBounds();
       expect(restored.bottom).assertEqual(before.bottom);
-      const retained = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('input-项目名称'));
+      const retained = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('project-name'));
       expect(await retained.getText()).assertEqual('Keyboard regression draft');
       // Leave the form without creating a project or calling Hermes.
       await driver.pressBack();

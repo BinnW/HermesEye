@@ -15,6 +15,326 @@
     {
       "name": "calendar_reason",
       "value": "读取手机日历中各应用创建的今日日程并在本机展示，仅在你选择分享后用于助手对话"
+    },
+    {
+      "name": "project_edit",
+      "value": "编辑项目"
+    },
+    {
+      "name": "project_create",
+      "value": "新建项目"
+    },
+    {
+      "name": "project_form_hint",
+      "value": "名称、目标、完成标准必填；其他内容可以逐步补充。"
+    },
+    {
+      "name": "project_name",
+      "value": "项目名称（1–100 字）"
+    },
+    {
+      "name": "project_kind",
+      "value": "项目类型"
+    },
+    {
+      "name": "project_goal",
+      "value": "想达成什么目标"
+    },
+    {
+      "name": "project_criteria",
+      "value": "如何判断目标达成"
+    },
+    {
+      "name": "project_date",
+      "value": "目标日期（选填，YYYY-MM-DD）"
+    },
+    {
+      "name": "project_next",
+      "value": "下一步行动"
+    },
+    {
+      "name": "project_agent",
+      "value": "Agent 托管 · 点击切换为手工托管"
+    },
+    {
+      "name": "project_manual",
+      "value": "手工托管 · 点击切换为 Agent 托管"
+    },
+    {
+      "name": "project_permission",
+      "value": "托管方式仅记录偏好，不授予执行、知识库写入或部署权限。"
+    },
+    {
+      "name": "project_save",
+      "value": "保存项目"
+    },
+    {
+      "name": "project_keep_draft",
+      "value": "返回概览，保留草稿"
+    },
+    {
+      "name": "project_missing_criteria",
+      "value": "尚未明确，编辑项目后补充完成标准。"
+    },
+    {
+      "name": "project_target_value",
+      "value": "目标日期：%s"
+    },
+    {
+      "name": "project_no_next",
+      "value": "还没有下一步，可以与 Hermes 一起拆解。"
+    },
+    {
+      "name": "project_local",
+      "value": "本机项目 · 尚未同步。项目达成由你依据完成标准确认。"
+    },
+    {
+      "name": "project_discuss",
+      "value": "与 Hermes 推进目标"
+    },
+    {
+      "name": "project_remote",
+      "value": "远程软件构建"
+    },
+    {
+      "name": "project_remote_hint",
+      "value": "当前可与 Hermes 讨论需求。远程工作区、多 Agent 调度、构建与部署尚未接入。"
+    },
+    {
+      "name": "project_remote_flow",
+      "value": "目标与约束 → 方案确认 → 远程执行 → 查看变更与验证 → 成果验收 → 按需部署"
+    },
+    {
+      "name": "project_lifecycle",
+      "value": "项目状态"
+    },
+    {
+      "name": "project_archive_hint",
+      "value": "项目已归档；恢复后可编辑项目。既有任务和会话仍保留。"
+    },
+    {
+      "name": "project_restore",
+      "value": "恢复到进行中"
+    },
+    {
+      "name": "project_resume",
+      "value": "重新推进项目"
+    },
+    {
+      "name": "project_pause",
+      "value": "暂停项目"
+    },
+    {
+      "name": "project_complete",
+      "value": "确认目标达成"
+    },
+    {
+      "name": "project_archive",
+      "value": "归档项目"
+    },
+    {
+      "name": "project_complete_hint",
+      "value": "对照完成标准填写达成依据。任务或里程碑完成数不会自动判定项目成功；依据将写入复盘。"
+    },
+    {
+      "name": "project_evidence",
+      "value": "达成依据（必填，最多 3900 字）"
+    },
+    {
+      "name": "project_confirm_complete",
+      "value": "保存依据并标记已达成"
+    },
+    {
+      "name": "project_archive_confirm_hint",
+      "value": "归档保留全部记录，项目将从默认列表隐藏。关联任务不会被删除或取消。"
+    },
+    {
+      "name": "project_confirm_archive",
+      "value": "确认归档"
+    },
+    {
+      "name": "project_cancel",
+      "value": "取消"
+    },
+    {
+      "name": "project_milestones",
+      "value": "里程碑"
+    },
+    {
+      "name": "project_milestone_hint",
+      "value": "里程碑描述阶段成果，独立于每日任务计数；最多 100 项。"
+    },
+    {
+      "name": "project_no_milestones",
+      "value": "还没有里程碑，从第一个阶段成果开始。"
+    },
+    {
+      "name": "project_milestone_done",
+      "value": "✓ 已完成 · 点击重新打开"
+    },
+    {
+      "name": "project_milestone_todo",
+      "value": "待完成 · 点击标记完成"
+    },
+    {
+      "name": "project_milestone_title",
+      "value": "阶段成果（最多 200 字）"
+    },
+    {
+      "name": "project_add_milestone",
+      "value": "添加里程碑"
+    },
+    {
+      "name": "project_reviews",
+      "value": "复盘"
+    },
+    {
+      "name": "project_review_hint",
+      "value": "记录实际结果、证据、阻碍与下一步调整。保存后保留历史，不代表远端已执行。"
+    },
+    {
+      "name": "project_review_text",
+      "value": "本次复盘 / 成果记录"
+    },
+    {
+      "name": "project_add_review",
+      "value": "保存复盘"
+    },
+    {
+      "name": "project_no_reviews",
+      "value": "还没有复盘记录。"
+    },
+    {
+      "name": "project_overview",
+      "value": "概览"
+    },
+    {
+      "name": "project_search",
+      "value": "搜索项目名称或目标"
+    },
+    {
+      "name": "project_all",
+      "value": "全部项目"
+    },
+    {
+      "name": "project_empty_filter",
+      "value": "当前没有匹配的项目，可以切换筛选或新建一个目标。"
+    },
+    {
+      "name": "reading_unknown",
+      "value": "真实阅读进度尚未获取"
+    },
+    {
+      "name": "reading_organized",
+      "value": "上次成功整理（当前批次未完成时保留旧结果）"
+    },
+    {
+      "name": "reading_user_question",
+      "value": "用户疑问 · 关联的原始笔记"
+    },
+    {
+      "name": "reading_query",
+      "value": "查询原操作（不重发）"
+    },
+    {
+      "name": "reading_continue",
+      "value": "用下方输入继续此疑问"
+    },
+    {
+      "name": "reading_select",
+      "value": "查看来源笔记"
+    },
+    {
+      "name": "reading_selected",
+      "value": "已选为疑问来源"
+    },
+    {
+      "name": "reading_entry_select",
+      "value": "选择这条来源"
+    },
+    {
+      "name": "reading_v1_intro",
+      "value": "微信读书来源由独立业务服务采集。仅分享指定书籍笔记与疑问；关闭周期不会删除历史结果。"
+    },
+    {
+      "name": "reading_root",
+      "value": "独立业务服务根地址（不是 Hermes 地址）"
+    },
+    {
+      "name": "reading_token",
+      "value": "业务服务凭据（仅本次连接使用）"
+    },
+    {
+      "name": "reading_http",
+      "value": "明确允许本次私网 HTTP 调试"
+    },
+    {
+      "name": "reading_connect",
+      "value": "连接并读取阅读副本"
+    },
+    {
+      "name": "reading_source_missing",
+      "value": "服务端尚未配置微信读书来源；不显示示例进度。"
+    },
+    {
+      "name": "reading_empty",
+      "value": "尚无已采集书籍。连接服务后填写书籍 ID、确认授权并采集。"
+    },
+    {
+      "name": "reading_policy",
+      "value": "采集与整理设置"
+    },
+    {
+      "name": "reading_scope",
+      "value": "书籍 ID 范围（英文逗号分隔，最多 30 本）"
+    },
+    {
+      "name": "reading_interval",
+      "value": "周期小时数（1–720）"
+    },
+    {
+      "name": "reading_timezone",
+      "value": "时区（例如 Asia/Shanghai）"
+    },
+    {
+      "name": "reading_consent",
+      "value": "同意采集上述书籍笔记并发送给 Hermes 整理；提问会分享选中笔记。"
+    },
+    {
+      "name": "reading_enabled",
+      "value": "启用周期采集与整理（默认关闭）"
+    },
+    {
+      "name": "reading_save_policy",
+      "value": "保存范围、授权与周期设置"
+    },
+    {
+      "name": "reading_collect",
+      "value": "确认当前范围并采集整理"
+    },
+    {
+      "name": "reading_refresh",
+      "value": "只刷新已保存结果"
+    },
+    {
+      "name": "reading_input",
+      "value": "本轮疑问（1–1000 字）"
+    },
+    {
+      "name": "reading_ask",
+      "value": "确认来源并提问 Hermes"
+    },
+    {
+      "name": "reading_more_questions",
+      "value": "显示后续疑问"
+    },
+    {
+      "name": "reading_more_entries",
+      "value": "显示后续来源笔记"
+    },
+    {
+      "name": "reading_quote",
+      "value": "将分享的连续原始笔记片段（1–1500 字；长笔记需自行选择，不会自动截断）"
     }
   ]
 }

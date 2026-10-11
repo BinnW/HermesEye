@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HermesEye 阅读 · V1 交互参考</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef4f3;--surface:#fff;--ink:#183b37;--muted:#58736e;--line:#cedbd8;--accent:#24736a;--selection:#deeeea}
+@media(prefers-color-scheme:dark){:root{--bg:#142321;--surface:#1e302d;--ink:#e1eeeb;--muted:#aec6c0;--line:#405b55;--accent:#a3d7ce;--selection:#294a43}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,sans-serif}main{max-width:680px;margin:auto;padding:20px 16px 110px}h1{font-size:24px}h2{font-size:18px}p{margin:8px 0}.muted{color:var(--muted);font-size:14px}section{background:var(--surface);border:1px solid var(--line);padding:16px;border-radius:12px;margin:16px 0}button,input,textarea{font:inherit;color:inherit;border:1px solid var(--line);border-radius:8px;min-height:48px;padding:10px;width:100%;background:var(--bg)}button{margin:6px 0;background:var(--selection);cursor:pointer}label{display:block;margin:10px 0}input[type=checkbox]{width:24px;min-height:24px;vertical-align:middle}textarea{height:100px}blockquote{border-left:3px solid var(--accent);margin:12px 0;padding-left:12px}.nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px}.nav span{width:130px;text-align:center;padding:8px}.nav strong{color:var(--accent)}output{display:block;color:var(--muted)}details{margin:12px 0}summary{cursor:pointer;min-height:48px;display:flex;align-items:center}
+</style>
+<main>
+<p class="muted">V1 交互参考 · 所有内容均为设计示例，不连接服务、不保存凭据、不代表设备验收。</p>
+<h1>阅读</h1><p>授权采集笔记、周期整理与逐条疑问讨论，不评估理解程度。</p>
+<section><h2>独立业务连接</h2><label>业务服务根地址<input placeholder="https://your-business-service.example"></label><label>业务服务凭据<input type="password" autocomplete="off" placeholder="仅本次连接使用"></label><label><input type="checkbox"> 明确允许本次私网 HTTP 调试</label><button data-message="示例不请求网络。正式应用连接业务服务，不直接连接微信读书。">连接并读取阅读副本</button></section>
+<section><h2>示例书籍 · 非真实私人数据</h2><p>真实进度：尚未获取</p><p class="muted">来源：微信读书 · 来源更新时间尚未获取</p><p>整理状态：unknown · 保留上次成功结果</p><button data-message="正式应用查询原 operationId，不重新生成或重发。">查询原操作（不重发）</button>
+<details><summary>查看来源笔记</summary><p class="muted">个人想法 · chapter:1 · 示例条目</p><blockquote>怎样把读到的概念转化为可以检验的小实验？</blockquote><button data-message="正式应用会预填短笔记原文；长笔记必须由用户选择连续引用片段。">选择这条来源</button></details>
+<h2>用户疑问 · 原始来源</h2><p>应该如何定义一个小实验的完成标准？</p><blockquote>怎样把读到的概念转化为可以检验的小实验？</blockquote><p>状态：尚未发送；这里不会伪造 Hermes 的回答。</p></section>
+<section><details><summary>采集与整理设置</summary><label>书籍 ID 范围<input placeholder="book-id-1,book-id-2"></label><label>周期小时数（1–720）<input type="number" min="1" max="720" value="24"></label><label>时区<input value="Asia/Shanghai"></label><label><input type="checkbox"> 同意采集这些书籍笔记并发送给 Hermes 整理</label><label><input type="checkbox"> 启用周期采集与整理（默认关闭）</label><button data-message="正式应用保存明确范围和授权；暂停不删除历史、不撤销在途操作。">保存范围、授权与周期</button><button data-message="完整来源成功后才发布；超时查询原操作，不自动重放。">采集并整理授权范围</button><button data-message="只读取已保存结果，不触发新的整理或回答。">只刷新已保存结果</button></details></section>
+<section><h2>明确提问</h2><label>将分享的连续原始片段（1–1500 字）<textarea maxlength="1500" placeholder="必须来自选中的来源；不会自动截断"></textarea></label><label>本轮疑问（1–1000 字）<textarea maxlength="1000"></textarea></label><button data-message="每条问题创建独立 Need，保存原始引用；未知状态不显示成已回答。">确认来源并提问 Hermes</button><p class="muted">继续讨论沿用该问题，不与其他问题串历史。不自动判定已理解。</p></section>
+<output id="feedback" aria-live="polite">选择按钮查看交互约定。</output>
+</main><nav class="nav" aria-label="主导航"><span>今日</span><span>项目</span><span><strong>阅读</strong></span><span>我的</span></nav>
+<script>document.querySelectorAll('[data-message]').forEach(button=>button.addEventListener('click',()=>{document.getElementById('feedback').textContent=button.dataset.message;document.getElementById('feedback').scrollIntoView({behavior:'smooth',block:'center'});}));</script>
+</html>

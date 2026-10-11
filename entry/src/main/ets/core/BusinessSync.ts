@@ -1,5 +1,7 @@
+import { ProjectMilestone, ProjectReview } from './Workspace';
 /** Business protocol v1. Separate from the legacy v2 workspace and its private sources. */
 export interface BusinessPayload {
+  kind?: string; criteria?: string; targetDate?: string; milestones?: ProjectMilestone[]; reviews?: ProjectReview[];
   name?: string; goal?: string; managedBy?: string; nextStep?: string;
   date?: string; title?: string; status?: string; projectId?: string; priority?: string;
   minutes?: number; note?: string; content?: string; author?: string; source?: string;

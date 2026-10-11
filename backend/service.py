@@ -10,13 +10,15 @@ logger = logging.getLogger('hermeseye.service')
 class Service:
     def __init__(self, store, hermes=None, enable_runs=False):
         self.store, self.hermes, self.enable_runs = store, hermes, enable_runs
+        self.reading = None
         self.collectors = set()
         self.lock = threading.Lock()
 
     def capabilities(self):
         return dict(protocolVersion=1, serverId=self.store.server_id, workspaceId=self.store.workspace,
                     capabilities=dict(sync=True, sessions=self.hermes is not None, runs=self.hermes is not None and self.enable_runs,
-                                      approvals=False, jobs=False, deployment=False, upstreamReplay=False))
+                                      approvals=False, jobs=False, deployment=False, upstreamReplay=False,
+                                      reading=self.reading is not None, readingSource=self.reading is not None and self.reading.source is not None))
 
     def submit(self, request):
         if self.hermes is None:
