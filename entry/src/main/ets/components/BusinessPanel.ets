@@ -1,3 +1,5 @@
+import { MessageContent } from './MessageContent';
+import { openExternalLink } from '../services/SystemPresentation';
 import { common } from '@kit.AbilityKit';
 import { BusinessState, BusinessEntity, BusinessMutation, BusinessConflict, BusinessPending,
   newBusinessState, assertBusinessIdentity } from '../core/BusinessSync';
@@ -8,6 +10,8 @@ import { BusinessRepository } from '../services/BusinessRepository';
 
 @Component
 export struct BusinessPanel {
+  back: () => void = () => {};
+  @State showSettings: boolean = false;
   project: Project | undefined = undefined;
   @State root: string = '';
   @State token: string = '';
@@ -90,10 +94,12 @@ export struct BusinessPanel {
     await coordinator.send({ operationId: newId(), needId: this.needId, kind: 'chat', input: this.prompt.trim() });
     this.prompt = '';
   }
-  build() {
-    Column({ space: 12 }) {
-      Text(this.project ? '项目 · 持久业务会话' : '业务服务 · 本地预览').fontSize(24).fontWeight(FontWeight.Bold)
-      Text(this.status).fontSize(14)
+  build() { this.layout() }
+  @Builder
+  settings() {
+    Scroll() {
+      Column({ space: 12 }) {
+        Text(this.status).fontSize(14).fontColor($r('app.color.text_secondary'))
       if (!this.connected) {
         TextInput({ placeholder: '独立业务服务根地址（不含 /v1）', text: this.root }).onChange((value: string) => { this.root = value; })
         TextInput({ placeholder: '本次业务服务 Token（不保存）', text: this.token }).type(InputType.Password)
@@ -135,23 +141,73 @@ export struct BusinessPanel {
             this.act(async (c: BusinessCoordinator) => { await c.resolve(conflict.local.mutationId, true, newId()); });
           })
         }, (conflict: BusinessConflict) => conflict.local.mutationId)
-        Text('持久会话 · 只发送本次输入，旧历史不会上传').fontSize(18)
-        if (this.project) { Text('会话：' + this.needId + ' · 仅本次预览文本会分享给 Hermes') }
-        else {
-          TextInput({ placeholder: '会话标识，例如 study-harmony', text: this.needId }).onChange((value: string) => { this.needId = value; })
+      }
+        if (!this.project) {
+          TextInput({ placeholder: '稳定需求标识，例如 study-harmony', text: this.needId }).id('business-need')
+            .onChange((value: string) => { this.needId = value; })
         }
-        TextArea({ placeholder: '发送给 Hermes 的消息', text: this.prompt }).onChange((value: string) => { this.prompt = value; })
-        Button('保存意图并发送').enabled(!this.busy && this.connected).onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.send(c); }); })
-        ForEach(this.replica.operations.filter((pending: BusinessPending) => !this.project || pending.intent.needId === this.needId), (pending: BusinessPending) => {
-          Text(pending.intent.needId + ' · ' + (pending.operation?.state || '结果未知，请查询'))
-          Text(pending.operation?.result.message || pending.operation?.result.output || '')
+        Text('本次发送仅包含输入框中可见文本。结果未知时查询原操作，不自动重放。').fontSize(14)
+        Button('返回会话').constraintSize({ minHeight: 48 }).onClick(() => { this.showSettings = false; })
+      }.width('100%').padding(20).alignItems(HorizontalAlign.Start)
+        .foregroundColor($r('app.color.text_primary'))
+    }.height('100%').width('100%')
+  }
+  @Builder
+  layout() {
+    Column() {
+      Row({ space: 8 }) {
+        Button('返回').constraintSize({ minHeight: 48 }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(this.back)
+        Text(this.project ? '项目 · 持久业务会话' : '业务服务 · 本地预览').fontSize(18).layoutWeight(1).fontColor($r('app.color.text_primary'))
+        Button('···').id('business-settings').constraintSize({ minHeight: 48, minWidth: 48 })
+          .backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).accessibilityText('连接、需求和显式同步')
+          .onClick(() => { this.showSettings = true; })
+      }.padding(12).width('100%')
+      Scroll() {
+        Column({ space: 12 }) {
+          Text(this.status).fontSize(14).fontColor($r('app.color.text_secondary'))
+          if (!this.connected) {
+            Button('连接独立业务服务').constraintSize({ minHeight: 48 }).backgroundColor($r('app.color.bg_surface'))
+              .fontColor($r('app.color.action_primary')).onClick(() => { this.showSettings = true; })
+          }
+          if (this.needId) { Text('需求：' + this.needId).fontSize(14).fontColor($r('app.color.text_secondary')) }
+        ForEach(this.replica.operations.filter((pending: BusinessPending) => pending.intent.needId === this.needId), (pending: BusinessPending) => {
+          Row() {
+            Blank().width('18%')
+            Text(pending.intent.input).fontSize(16).lineHeight(25).fontColor($r('app.color.text_primary'))
+              .layoutWeight(1).padding(16).borderRadius({ topLeft: 20, topRight: 20, bottomLeft: 20, bottomRight: 6 })
+              .backgroundColor($r('app.color.selection_bg')).copyOption(CopyOptions.InApp)
+          }.width('100%')
+          Row() {
+            Column({ space: 8 }) {
+              Text('Hermes · ' + (pending.operation?.state || '结果未知，请查询')).fontSize(14).fontColor($r('app.color.text_secondary'))
+              MessageContent({ content: pending.operation?.result.message || pending.operation?.result.output || '尚未收到可确认的回复',
+                openLink: (url: string) => { openExternalLink(this.getUIContext().getHostContext() as common.UIAbilityContext, url)
+                  .catch((error: Error) => { this.status = error.message; }); } })
+            }.layoutWeight(1).padding(16).borderRadius({ topLeft: 20, topRight: 20, bottomLeft: 6, bottomRight: 20 })
+              .backgroundColor($r('app.color.bg_surface')).alignItems(HorizontalAlign.Start)
+            Blank().width('12%')
+          }.width('100%')
           Button('查询原操作').enabled(!this.busy).onClick(() => {
             this.act(async (c: BusinessCoordinator) => { await c.recover(pending.intent.operationId); });
           })
         }, (pending: BusinessPending) => pending.intent.operationId)
-      }
-    }.width('100%').alignItems(HorizontalAlign.Start)
-      .enabled(!this.busy)
-      .padding(8)
+        }.padding(16).width('100%').alignItems(HorizontalAlign.Start)
+      }.layoutWeight(1).width('100%')
+      Row({ space: 8 }) {
+        Button('＋').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent)
+          .fontColor($r('app.color.action_primary')).accessibilityText('查看本次输入范围与同步设置').onClick(() => { this.showSettings = true; })
+        TextArea({ placeholder: '本次发送给 Hermes 的输入', text: this.prompt }).id('business-prompt')
+          .constraintSize({ minHeight: 48, maxHeight: 150 }).layoutWeight(1).maxLength(4000)
+          .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_surface'))
+          .onChange((value: string) => { this.prompt = value; })
+        Button('发送').id('business-send').constraintSize({ minHeight: 48 }).width(64)
+          .backgroundColor($r('app.color.action_primary')).fontColor($r('app.color.action_on_primary'))
+          .enabled(!this.busy && this.connected && !!this.needId && !!this.prompt.trim())
+          .onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.send(c); }); })
+      }.padding(12).width('100%').backgroundColor($r('app.color.bg_surface'))
+    }.width('100%').height('100%').foregroundColor($r('app.color.text_primary'))
+      .bindSheet(this.showSettings, this.settings(), { height: SheetSize.LARGE, showClose: true,
+        backgroundColor: $r('app.color.bg_elevated'),
+        onWillDismiss: (action: DismissSheetAction) => { this.showSettings = false; action.dismiss(); } })
   }
 }

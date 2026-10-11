@@ -53,3 +53,8 @@
 覆盖来源分页/单位/升级、完整采集后发布、长笔记分片、内容去重、周期暂停/重启、历史保留、原文引用、同书问题隔离、超时不重放、HTTP 契约、身份及缓存失败。测试入口：`python3 -m unittest discover -s backend/tests -v`、`node scripts/test-ui-flows.cjs`、`bash scripts/verify.sh`、`bash scripts/device.sh test`。
 
 实际构建及设备结果见 [05](../05-release.md)、[20](20-reading-design-record.md)。本轮未调用真实微信读书私人数据，也未将此前通用 Hermes 联调推断为本模块已联调。家庭 Ubuntu 部署、手机到业务服务网络、真实采集及服务端周期实跑仍待实际配置和验收。
+
+
+## 2026-10-11 · V2 展示适配
+
+仅改展示：阅读概览为进度、来源和问题摘要，书籍正文打开详情，周期设置独立弹层，逐条问题展示完整引用与真实操作结果。仍执行本规格的来源授权、百分数进度与故障恢复；不恢复旧草图中的IMA入口或未接通统计。设置折叠不改变分享同意，失败不清空输入。实现与验证见 [21](../21-frontend-v2-implementation.md)。

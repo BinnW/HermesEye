@@ -340,3 +340,10 @@ bash scripts/test-deveco.sh
 未验证：真实微信读书/Hermes 来源、家庭部署、手机网络、长周期实跑与大数据容量；项目/阅读页的深色、大字号、320vp 与读屏；设备层完整表单落盘链路。
 
 证据：[15/15 阶段结果](testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](testing/validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](testing/validation/2026-10-11-reading-tests-device/device-test.txt)（证据目录仅本地保留）。
+
+
+## 2026-10-11 · dev V2 前端交付
+
+用户已授权新建dev实施V2；完成胶囊导航、事项完成与详情、项目四分区、阅读层级、分组连接和左右会话固定输入。同步14、21与模块规格/实施记录，V1业务与安全边界继续有效。
+
+最终Harness `v2-release-ready` 15/15通过，主包/测试包/本地Hypium均零ArkTS告警；生产方法模拟点击20组、本地Hypium10项。core行/块100%/100%，services行/块99.6%/99.3%，后端77项通过。API26模拟器安装成功，最终 `v2-release-device` 12/12通过（Failure 0 / Error 0）；阅读专项另2/2通过，已查看原生项目列表与首页底部截图。原生快速切换弹层与业务返回jscrash的迭代修复见问题17。设备回归为只读入口及键盘装配验证，不能代替真实服务、权限或完整生命周期的验收。验证证据只保留本地，不上传GitHub。

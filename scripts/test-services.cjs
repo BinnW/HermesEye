@@ -22,6 +22,19 @@ const domain = load('core/Domain.ts');
 let passed = 0;
 async function test(name, action) { await action(); passed++; console.log('PASS ' + name); }
 async function main() {
+  await test('message links open only on explicit action, reject credentials and sanitize native failures', async () => {
+    const presentation = load('services/SystemPresentation.ets', { '@kit.AbilityKit': { ConfigurationConstant: {} } });
+    const opened = [];
+    await presentation.openExternalLink({ startAbility: async want => opened.push(want) }, 'https://example.org/source');
+    assert.equal(opened.length, 1); assert.equal(opened[0].uri, 'https://example.org/source');
+    for (const url of ['javascript:alert(1)', 'https://token@example.org/a', 'https://example.org/ bad']) {
+      await assert.rejects(() => presentation.openExternalLink({ startAbility: async want => opened.push(want) }, url), /链接地址无效/);
+    }
+    assert.equal(opened.length, 1);
+    await assert.rejects(() => presentation.openExternalLink({ startAbility: async () => { throw Error('private native details'); } }, 'https://example.org'), error => {
+      assert.match(error.message, /网页打开失败/); assert.ok(!error.message.includes('private native details')); return true;
+    });
+  });
   let requestOptions, requestUrl, destroyed = 0, calls = 0, fail = false;
   const http = {
     RequestMethod: { POST: 'POST', GET: 'GET' }, HttpDataType: { STRING: 'STRING' },

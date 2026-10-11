@@ -28,7 +28,7 @@ export struct WorkspaceAction {
         .padding({ top: 12, bottom: 12, left: 16, right: 16 })
     }.width('100%').constraintSize({ minHeight: 48 }).borderRadius(12)
       .backgroundColor(!this.active ? $r('app.color.disabled_bg') :
-        (this.primary ? $r('app.color.action_primary') : $r('app.color.selection_bg')))
+        (this.primary ? $r('app.color.action_primary') : $r('app.color.bg_surface')))
       .stateStyles({
         pressed: {
           .backgroundColor(this.primary ? $r('app.color.action_pressed') : $r('app.color.selection_bg'))

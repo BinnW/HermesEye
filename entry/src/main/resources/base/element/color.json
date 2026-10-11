@@ -95,6 +95,22 @@
     {
       "name": "status_info_bg",
       "value": "#EDF3F7"
+    },
+    {
+      "name": "glass_content",
+      "value": "#DEFFFFFF"
+    },
+    {
+      "name": "glass_floating",
+      "value": "#C2FFFFFF"
+    },
+    {
+      "name": "nav_shadow",
+      "value": "#1434785A"
+    },
+    {
+      "name": "modal_mask",
+      "value": "#66000000"
     }
   ]
 }

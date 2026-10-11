@@ -74,13 +74,21 @@ function sendHarness() {
   const h = new sandbox.exports.Harness();
   h.data = w.newWorkspace(); w.selectConnection(h.data, connection());
   const need = w.createNeed(w.activeSpace(h.data), 'Chat', 'independent', '');
-  h.ready = true; h.busy = false; h.chatDraft = 'hello'; h.drafts = new Map();
+  h.ready = true; h.busy = false; h.chatDraft = 'hello'; h.drafts = new Map(); h.contextDrafts = new Map();
   h.routeKey = () => 'server/chat'; h.selectedNeed = () => w.activeSpace(h.data).needs.find(n => n.id === need.id);
   h.sharePreview = () => ''; h.settings = () => ({}); h.notice = () => {};
   h.credentials = { read: async () => 'test-token' }; h.repository = { save: async () => {} };
   return h;
 }
 async function main() {
+  await test('V2 material preference accepts old workspaces and boolean choices but rejects corrupt values', () => {
+    const data = w.newWorkspace();
+    w.validateWorkspace(data);
+    data.solidSurfaces = false; w.validateWorkspace(data);
+    data.solidSurfaces = true; w.validateWorkspace(w.copyWorkspace(data));
+    data.solidSurfaces = 'enabled'; assert.throws(() => w.validateWorkspace(data), /材质偏好/);
+    assert.throws(() => w.validateWorkspace(null));
+  });
   await test('reading snapshots preserve real percent units, captured question sources and legacy books', () => {
     const reading = load('core/Reading.ts');
     const entry = { id: 'e1', kind: 'highlight', text: 'source', location: 'chapter:1' };
@@ -409,13 +417,14 @@ async function main() {
     const page = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/pages/Index.ets'), 'utf8');
     const messages = page.indexOf('ForEach(this.selectedNeed()?.messages ?? []');
     const pending = page.indexOf('if (this.pendingKey === this.routeKey())');
-    const input = page.indexOf("this.area('继续这个需求'");
+    const input = page.indexOf("  chatComposer()");
     assert.ok(messages > 0 && pending > messages && input > pending);
   });
-  await test('operation feedback uses toast without a residual top banner', () => {
+  await test('V2 feedback remains visible near content and toast is supplementary', () => {
     const page = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/pages/Index.ets'), 'utf8');
     assert.ok(page.includes('showToast'));
-    assert.ok(!page.includes('@State feedback'));
+    assert.ok(page.includes('@State feedback'));
+    assert.ok(page.includes('this.feedbackFailed'));
     assert.ok(!page.includes('提示 · '));
   });
   const files = new Map(); let failRename = false, failWrite = false;

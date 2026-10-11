@@ -143,7 +143,7 @@ export interface Space {
   books: ReadingItem[]; runs: AgentRun[]; reminders: Task[]; lastSyncAt: number | null;
 }
 export interface Workspace {
-  version: number; appearance: number; connection: Connection | null; activeServer: string; spaces: Space[];
+  version: number; appearance: number; solidSurfaces?: boolean; connection: Connection | null; activeServer: string; spaces: Space[];
 }
 
 export function newSpace(serverKey: string): Space {
@@ -277,6 +277,7 @@ function unique(ids: string[]): void {
   });
 }
 export function validateWorkspace(workspace: Workspace): Workspace {
+  if (workspace && workspace.solidSurfaces !== undefined && typeof workspace.solidSurfaces !== 'boolean') { throw new Error('材质偏好无效'); }
   if (!workspace || workspace.version !== 2 || ![0, 1, 2].includes(workspace.appearance) || !Array.isArray(workspace.spaces)) {
     throw new Error('本地数据版本或格式异常');
   }

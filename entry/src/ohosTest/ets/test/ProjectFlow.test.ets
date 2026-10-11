@@ -22,10 +22,10 @@ export default function projectFlowTest() {
       const driver = Driver.create();
       await (await driver.findComponent(ON.id('main-navigation-1'))).click();
       await driver.delayMs(500);
+      const cacheDir = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir;
+      expect(await driver.screenCap(cacheDir + '/hermes-v2-projects.png')).assertTrue();
       await driver.assertComponentExist(ON.id('project-search'));
-      for (const status of ['active', 'paused', 'completed', 'archived', 'all']) {
-        await driver.assertComponentExist(ON.id('project-filter-' + status));
-      }
+      await driver.assertComponentExist(ON.id('project-state-filter'));
       const search = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('project-search'));
       await search.click();
       await driver.delayMs(300);
@@ -35,23 +35,29 @@ export default function projectFlowTest() {
       await driver.assertComponentExist(ON.id('project-empty-filter'));
       await (await driver.findComponent(ON.id('project-search'))).clearText();
       await driver.delayMs(500);
-      await (await driver.findComponent(ON.id('project-filter-archived'))).click();
+      await driver.pressBack();
+      await driver.delayMs(300);
+      await (await driver.findComponent(ON.id('project-state-filter'))).click();
       await driver.delayMs(400);
       await driver.assertComponentExist(ON.id('project-filter-archived'));
+      await (await driver.findComponent(ON.id('project-filter-archived'))).click();
+      await driver.delayMs(800);
+      expect((await driver.findComponent(ON.id('project-filter-active'))) === null).assertTrue();
+      await (await driver.findComponent(ON.id('project-state-filter'))).click();
+      await driver.delayMs(400);
       await (await driver.findComponent(ON.id('project-filter-active'))).click();
       await driver.delayMs(400);
-      await driver.assertComponentExist(ON.id('project-filter-active'));
     });
 
     it('projectNewFormOpensKeepsListAndDiscardsOnBack', 0, async () => {
       const driver = Driver.create();
       const scroll = await driver.findComponent(ON.id('workspace-scroll'));
-      await (await scroll.scrollSearch(ON.text('新建项目'))).click();
+      await (await scroll.scrollSearch(ON.id('project-create'))).click();
       await driver.delayMs(700);
       // 必填字段与类型选择必须真实渲染（PRJ-02）。
       await driver.assertComponentExist(ON.id('project-name'));
-      await driver.assertComponentExist(ON.id('project-kind-learning'));
-      await driver.assertComponentExist(ON.id('project-kind-software'));
+      await driver.assertComponentExist(ON.id('project-kind'));
+      expect((await driver.findComponent(ON.id('main-navigation-1'))) === null).assertTrue();
       // 返回不保存：表单关闭后仍回到项目列表，输入控件不再存在（进程内草稿允许保留，见 PRJ-12）。
       await driver.pressBack();
       await driver.delayMs(600);
@@ -59,7 +65,7 @@ export default function projectFlowTest() {
       expect((await driver.findComponent(ON.id('project-name'))) === null).assertTrue();
       await (await driver.findComponent(ON.id('main-navigation-1'))).click();
       await driver.delayMs(300);
-      await driver.assertComponentExist(ON.id('project-filter-active'));
+      await driver.assertComponentExist(ON.id('project-state-filter'));
     });
   });
 }

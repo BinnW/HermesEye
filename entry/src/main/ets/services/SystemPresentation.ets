@@ -25,3 +25,9 @@ export function applySystemAppearance(context: common.UIAbilityContext, index: n
     throw platformFailure('appearance.setColorMode', error as Error, advice);
   }
 }
+
+export async function openExternalLink(context: common.UIAbilityContext, url: string): Promise<void> {
+  if (!/^https?:\/\/[a-zA-Z0-9.-]+(?::[0-9]{1,5})?(?:[/?#][^\s]*)?$/.test(url)) { throw new Error('链接地址无效，仅支持无凭据的网页链接'); }
+  try { await context.startAbility({ action: 'ohos.want.action.viewData', uri: url }); }
+  catch (error) { throw platformFailure('link.open', error as Error, '网页打开失败，请复制链接'); }
+}

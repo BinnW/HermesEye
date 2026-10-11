@@ -33,7 +33,21 @@ export default function readingFlowTest() {
       await (await driver.findComponent(ON.id('main-navigation-0'))).click();
       await driver.delayMs(400);
       const scroll = await driver.findComponent(ON.id('workspace-scroll'));
-      await (await scroll.scrollSearch(ON.text('阅读概览'))).click();
+      // TestKit's edge swipe starts beneath the floating capsule; swipe in the
+      // visible content instead, as a user does, and stop once the entry is safe.
+      const bounds = await scroll.getBounds();
+      const nav = await (await driver.findComponent(ON.id('main-navigation-0'))).getBounds();
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const entry = await driver.findComponent(ON.id('home-reading'));
+        if (entry && (await entry.getBounds()).bottom < nav.top - 24) { break; }
+        const height = bounds.bottom - bounds.top;
+        await driver.swipe(Math.round((bounds.left + bounds.right) / 2), Math.round(bounds.top + height * 0.6),
+          Math.round((bounds.left + bounds.right) / 2), Math.round(bounds.top + height * 0.2));
+        await driver.delayMs(300);
+      }
+      const cacheDir = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir;
+      expect(await driver.screenCap(cacheDir + '/hermes-v2-home-bottom.png')).assertTrue();
+      await (await driver.findComponent(ON.id('home-reading'))).click();
       await driver.delayMs(500);
       await driver.assertComponentExist(ON.id('main-navigation-2'));
       await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('reading-root'));

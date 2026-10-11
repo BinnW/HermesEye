@@ -1,10 +1,11 @@
+import { MessageContent } from '../components/MessageContent';
 import { ReadingPanel } from '../components/ReadingPanel';
 import { ReadingSnapshot } from '../core/Reading';
 import { BusinessIdentity } from '../core/BusinessSync';
 import { ProjectPanel } from '../components/ProjectPanel';
-import { ProjectDraft, projectKindLabel, projectStatusLabel, projectBrief } from '../core/Workspace';
+import { ProjectDraft, ProjectMilestone, projectKindLabel, projectStatusLabel, projectBrief } from '../core/Workspace';
 import { BusinessPanel } from '../components/BusinessPanel';
-import { showToast, applySystemAppearance } from '../services/SystemPresentation';
+import { showToast, applySystemAppearance, openExternalLink } from '../services/SystemPresentation';
 import { reportPlatformFailure } from '../services/PlatformErrors';
 import { common } from '@kit.AbilityKit';
 import { Message, Settings, Task, Snapshot, cleanText, contextText, createRequest } from '../core/Domain';
@@ -22,6 +23,8 @@ import { SectionHeading, WorkspaceAction } from '../components/WorkspaceComponen
 import { DailyPlanCard } from '../components/DailyPlanCard';
 import { WorkspaceNavigationItem } from '../components/WorkspaceNavigation';
 
+interface ConversationContextDraft { calendar: boolean; device: boolean; needId: string; snapshot: Snapshot; }
+
 @Entry
 @Component
 struct Index {
@@ -31,6 +34,19 @@ struct Index {
   @State busy: boolean = false;
   @State sending: boolean = false;
   @State tab: number = 0;
+  @State detail: string = '';
+  @State solidSurfaces: boolean = false;
+  @State feedback: string = '';
+  @State feedbackFailed: boolean = false;
+  @State undoPlanId: string = '';
+  @State undoPlanBefore: WorkStatus = 'todo';
+  @State undoSpace: string = '';
+  @State undoFingerprint: string = '';
+  @State connectionGroup: string = '';
+  @State planOptions: boolean = false;
+  @State recordOptions: boolean = false;
+  @State newMessages: boolean = false;
+  private followingMessages: boolean = true;
   @State route: string = '';
   @State availableWidth: number = 0;
   @State keyboardVisible: boolean = false;
@@ -40,7 +56,6 @@ struct Index {
   @State calendarEntries: CalendarEntry[] = [];
   @State calendarSelection: string[] = [];
   @State calendarDate: string = '';
-  private pendingScrolled: boolean = false;
   private lastToast: string = '';
   private lastToastAt: number = 0;
   @State connectionStatus: string = '尚未连接';
@@ -101,6 +116,8 @@ struct Index {
   private history: string[] = [];
   private offsets: Map<string, number> = new Map();
   private drafts: Map<string, string> = new Map();
+  private contextDrafts: Map<string, ConversationContextDraft> = new Map();
+  private projectSections: Map<string, string> = new Map();
   private formDrafts: Map<string, string[]> = new Map();
   private projectDrafts: Map<string, string> = new Map();
   private labels: string[] = ['今日', '项目', '阅读', '我的'];
@@ -119,29 +136,53 @@ struct Index {
   private space(): Space { return activeSpace(this.data); }
   private routeKey(): string { return `${this.data.activeServer}|${this.route.startsWith('chat/') ? 'need' : this.tab}|${this.route}`; }
   private notice(message: string, failed: boolean = false): void {
+    this.feedback = message; this.feedbackFailed = failed;
     if (message === this.lastToast && Date.now() - this.lastToastAt < 1500) { return; }
     if (showToast(this.getUIContext(), message, failed)) {
       this.lastToast = message; this.lastToastAt = Date.now();
     }
   }
   private remember(): void {
-    this.offsets.set(this.routeKey(), this.scroller.currentOffset().yOffset);
-    if (this.route.startsWith('chat/')) { this.drafts.set(this.routeKey(), this.chatDraft); }
+    if (this.route !== 'business' && !this.route.startsWith('project-business/')) {
+      const offset = this.scroller.currentOffset();
+      if (offset) { this.offsets.set(this.routeKey(), offset.yOffset); }
+    }
+    if (this.route.startsWith('chat/')) {
+      this.drafts.set(this.routeKey(), this.chatDraft);
+      this.contextDrafts.set(this.routeKey(), { calendar: this.shareCalendar, device: this.shareDevice, needId: this.shareNeed, snapshot: this.snapshot });
+    }
   }
   private restore(): void {
     this.chatDraft = this.drafts.get(this.routeKey()) || '';
-    this.shareCalendar = false; this.shareDevice = false; this.shareNeed = '';
+    const context = this.contextDrafts.get(this.routeKey());
+    this.shareCalendar = context?.calendar || false; this.shareDevice = context?.device || false; this.shareNeed = context?.needId || '';
+    if (context) { this.snapshot = context.snapshot; }
+    this.newMessages = false; this.followingMessages = true;
     const offset = this.offsets.get(this.routeKey()) || 0;
-    setTimeout(() => { this.scroller.scrollTo({ xOffset: 0, yOffset: offset }); }, 0);
+    const key = this.routeKey();
+    setTimeout(() => {
+      if (this.routeKey() === key && this.route !== 'business' && !this.route.startsWith('project-business/')) {
+        this.scroller.scrollTo({ xOffset: 0, yOffset: offset });
+      }
+    }, 0);
   }
-  private go(route: string): void { this.remember(); this.history.push(this.route); this.route = route;
+  private go(route: string): void { this.detail = ''; this.remember(); this.history.push(this.route); this.route = route;
     if (route.startsWith('project/')) { this.projectNextStep = this.projectDrafts.get(this.data.activeServer + '/' + route) ?? this.selectedProject()?.nextStep ?? ''; }
     this.restore(); }
-  private back(): void { this.remember(); this.route = this.history.pop() || ''; this.restore(); }
-  private switchTab(index: number): void { this.remember(); this.tab = index; this.route = ''; this.history = []; this.restore(); }
-  onBackPress(): boolean { if (this.route) { this.back(); return true; } return false; }
+  private back(): void { this.detail = ''; this.remember(); this.route = this.history.pop() || ''; this.restore(); }
+  private switchTab(index: number): void { this.detail = ''; this.remember(); this.tab = index; this.route = ''; this.history = []; this.restore(); }
+  onBackPress(): boolean { if (this.detail) { this.detail = ''; return true; } if (this.route) { this.back(); return true; } return false; }
   private applyAppearance(index: number): void {
     applySystemAppearance(this.context(), index);
+  }
+  private async setAppearance(index: number): Promise<void> {
+    const previous = this.data.appearance;
+    try {
+      this.applyAppearance(index);
+      if (!await this.commit((next: Workspace) => { next.appearance = index; }, '显示偏好已保存')) {
+        this.applyAppearance(previous);
+      }
+    } catch (error) { this.notice('显示模式未切换：' + (error as Error).message, true); }
   }
   private fillConnection(): void {
     const config = this.data.connection;
@@ -152,7 +193,7 @@ struct Index {
   }
   private async load(): Promise<void> {
     try {
-      this.data = await this.repository.load(this.context()); this.ready = true; this.loaded = true;
+      this.data = await this.repository.load(this.context()); this.solidSurfaces = this.data.solidSurfaces === true; this.ready = true; this.loaded = true;
       this.fillConnection();
       try { this.applyAppearance(this.data.appearance); } catch { this.notice('数据已加载，显示模式切换失败，重启后重试', true); }
       const config = this.data.connection;
@@ -320,10 +361,26 @@ struct Index {
     }
   }
   private async setPlan(id: string, status: WorkStatus): Promise<void> {
-    await this.commit((_next: Workspace, space: Space) => {
+    const previous = this.space().plans.find((plan: PlanItem) => plan.id === id);
+    const before: WorkStatus = previous?.status || 'todo';
+    const spaceKey = this.data.activeServer;
+    if (await this.commit((_next: Workspace, space: Space) => {
       const item = space.plans.find((plan: PlanItem) => plan.id === id);
       if (!item) { throw new Error('计划不存在'); } item.status = status;
-    });
+    }, status === 'todo' ? '已重新打开为待完成' : status === 'done' ? '已完成' : '已设为进行中')) {
+      this.undoPlanId = id; this.undoPlanBefore = before; this.undoSpace = spaceKey;
+      this.undoFingerprint = JSON.stringify(this.space().plans.find((plan: PlanItem) => plan.id === id));
+    }
+  }
+  private async undoPlanStatus(): Promise<void> {
+    if (!this.undoPlanId) { return; }
+    if (await this.commit((_next: Workspace, space: Space) => {
+      const item = space.plans.find((plan: PlanItem) => plan.id === this.undoPlanId);
+      if (this.data.activeServer !== this.undoSpace || !item || JSON.stringify(item) !== this.undoFingerprint) {
+        throw new Error('事项或空间已变化，无法撤销；请在详情核对当前状态');
+      }
+      item.status = this.undoPlanBefore;
+    }, '已恢复变更前状态')) { this.undoPlanId = ''; }
   }
   private async saveRecord(): Promise<void> {
     if (await this.commit((_next: Workspace, space: Space) => {
@@ -362,15 +419,17 @@ struct Index {
       if (!config || this.data.activeServer !== serverKey(config)) { throw new Error('请先切换到已配置的服务器空间；本地收件箱不会自动上传'); }
       const need = this.selectedNeed();
       if (!need) { throw new Error('请先建立或选择需求会话'); }
+      const originServer = this.data.activeServer;
       const prompt = this.chatDraft;
-      const token = await this.credentials.read(config.credentialRef);
       const request = createRequest(config.model, need.messages.slice(-40), prompt, this.sharePreview());
-      this.pendingKey = draftKey; this.pendingPrompt = prompt; this.sendError = ''; this.pendingScrolled = false;
+      const token = await this.credentials.read(config.credentialRef);
+      this.pendingKey = draftKey; this.pendingPrompt = prompt; this.sendError = '';
       this.sending = true;
       const answer = await this.client.chat(this.settings(config), token, request);
       this.sending = false;
       const next = copyWorkspace(this.data);
-      const target = activeSpace(next).needs.find((item: Need) => item.id === need.id);
+      const origin = next.spaces.find((space: Space) => space.serverKey === originServer);
+      const target = origin?.needs.find((item: Need) => item.id === need.id);
       if (!target) { throw new Error('需求已不存在'); }
       target.messages.push(request.messages[request.messages.length - 1], { role: 'assistant', content: answer });
       try { await this.repository.save(next); }
@@ -379,9 +438,16 @@ struct Index {
         throw new Error('已收到回复但本地保存失败，回复仅保留在内存；请复制内容，不要重复发送');
       }
       this.data = next; this.pendingPrompt = '';
+      if (this.routeKey() === draftKey) {
+        if (this.followingMessages) { setTimeout(() => { this.scroller.scrollEdge(Edge.Bottom); }, 0); }
+        else { this.newMessages = true; }
+      }
       this.drafts.set(draftKey, '');
-      if (this.selectedNeed()?.id === need.id) { this.chatDraft = ''; }
-      this.shareCalendar = false; this.shareDevice = false; this.shareNeed = '';
+      if (this.routeKey() === draftKey) { this.chatDraft = ''; }
+      if (this.routeKey() === draftKey) {
+        this.shareCalendar = false; this.shareDevice = false; this.shareNeed = '';
+      }
+      this.contextDrafts.delete(draftKey);
       this.notice('回复已保存到本机；服务端会话持久化尚未核验');
     } catch (error) { this.sendError = (error as Error).message; this.notice(this.sendError, true); }
     finally { this.busy = false; this.sending = false; }
@@ -458,7 +524,7 @@ struct Index {
   }
 
   @Styles
-  surface() { .padding(16).width('100%').borderRadius(16).backgroundColor($r('app.color.bg_surface')).margin({ bottom: 12 }) }
+  surface() { .padding(16).width('100%').borderRadius(16).backgroundColor(this.solidSurfaces ? $r('app.color.bg_surface') : $r('app.color.glass_content')).backgroundBlurStyle(this.solidSurfaces ? BlurStyle.NONE : BlurStyle.Thin).margin({ bottom: 12 }) }
   @Styles
   field() {
     .width('100%').constraintSize({ minHeight: 48 }).borderRadius(12).backgroundColor($r('app.color.bg_surface'))
@@ -499,10 +565,10 @@ struct Index {
       .enabled(!this.busy).onChange(change).margin({ top: 4, bottom: 12 })
   }
   @Builder
-  check(label: string, value: boolean, change: (value: boolean) => void) {
+  check(label: string, value: boolean, change: (value: boolean) => void, available: boolean = true) {
     Row({ space: 8 }) {
       Checkbox({ name: label }).select(value).width(24).height(24).margin(12)
-        .selectedColor($r('app.color.action_primary')).enabled(!this.busy).onChange(change).accessibilityText(label)
+        .selectedColor($r('app.color.action_primary')).enabled(!this.busy && available).onChange(change).accessibilityText(label)
       Text(label).fontSize(16).fontColor($r('app.color.text_primary')).layoutWeight(1)
     }.width('100%').constraintSize({ minHeight: 48 })
   }
@@ -518,7 +584,8 @@ struct Index {
     DailyPlanCard({ item: this.space().plans.find((plan: PlanItem) => plan.id === item.id) || item, writable: this.ready && !this.busy,
       projectName: this.space().projects.find((project: Project) => project.id ===
         this.space().plans.find((plan: PlanItem) => plan.id === item.id)?.projectId)?.name || '',
-      changeStatus: (id: string, status: WorkStatus) => { this.setPlan(id, status); },
+      solid: this.solidSurfaces, open: (id: string) => { this.detail = 'plan/' + id; },
+      changeStatus: (id: string, status: WorkStatus) => this.setPlan(id, status),
       edit: (id: string) => { this.editPlan(id); },
       discuss: (id: string) => {
         const plan = this.space().plans.find((value: PlanItem) => value.id === id);
@@ -528,15 +595,16 @@ struct Index {
   }
   @Builder
   projectCard(project: Project) {
-    Column({ space: 8 }) {
-      this.body(project.name)
-      this.hint(projectKindLabel(project.kind) + ' · ' + projectStatusLabel(project.status))
-      this.hint(project.goal)
-      this.hint((project.managedBy === 'manual' ? '手工推进' : 'Hermes 辅助推进（需确认）') + ' · 本机项目')
+    Column({ space: 12 }) {
+      Text(project.name).fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).maxLines(2)
+      Text(project.goal).fontSize(14).lineHeight(22).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis }).fontColor($r('app.color.text_secondary'))
+      Divider().color($r('app.color.border_subtle'))
+      this.hint('下一步')
+      this.body(project.nextStep || '尚未填写')
+      this.hint(projectStatusLabel(project.status) + ' · 阶段 ' + (project.milestones || []).filter((item: ProjectMilestone) => item.done).length + '/' + (project.milestones || []).length)
       this.hint(this.projectTaskSummary(project))
-      this.hint('下一步：' + (project.nextStep || '尚未填写'))
-      this.link('项目详情与会话', () => { this.go('project/' + project.id); })
-    }.alignItems(HorizontalAlign.Start).surface()
+    }.alignItems(HorizontalAlign.Start).surface().onClick(() => { this.go('project/' + project.id); })
+      .accessibilityText(project.name + '，查看项目详情')
   }
   @Builder
   bookCard(book: ReadingItem) {
@@ -545,18 +613,26 @@ struct Index {
       this.hint('阅读进度：' + (book.progress === null ? '尚未获取' : book.progress))
       this.hint('历史阅读资料 · 保留原始摘抄与总结')
       this.hint(book.source + ' · ' + new Date(book.updatedAt).toLocaleString())
-      this.link('阅读详情与会话', () => { this.go('book/' + book.id); })
-    }.alignItems(HorizontalAlign.Start).surface()
+
+    }.alignItems(HorizontalAlign.Start).surface().onClick(() => { this.go('book/' + book.id); })
+      .accessibilityText(book.title + '，查看阅读详情')
   }
   @Builder
   home() {
-    SectionHeading({ title: '今天，把事情往前推进', subtitle: new Date().toLocaleDateString() })
-    this.section('今日计划')
+    Row() {
+      Column({ space: 6 }) {
+        Text('今日').fontSize(24).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary'))
+        this.hint(new Date().toLocaleDateString())
+      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      Button('＋').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent)
+        .fontColor($r('app.color.action_primary')).accessibilityText('新增事项、记录或需求').onClick(() => { this.detail = 'new'; })
+    }.width('100%').margin({ bottom: 12 })
+    Text('今日计划 ›').fontSize(18).fontColor($r('app.color.text_primary')).constraintSize({ minHeight: 48 })
+      .onClick(() => { this.changePlanDate(dayKey(new Date())); this.go('plans'); })
     Text(`本机今日事务：完成 ${planCounts(this.space(), dayKey(new Date()))[0]} · 进行中 ${planCounts(this.space(), dayKey(new Date()))[1]} · 待完成 ${planCounts(this.space(), dayKey(new Date()))[2]}（不含日历事项）`).fontSize(14).lineHeight(21).fontColor($r('app.color.text_secondary'))
     ForEach(this.space().plans.filter((item: PlanItem) => item.date === dayKey(new Date())).slice(0, 3), (item: PlanItem) => { this.planCard(item) }, (item: PlanItem) => item.id)
-    this.action('制定与查看每日计划', () => { this.changePlanDate(dayKey(new Date())); this.go('plans'); }, true)
-    this.hint('周期记录：工作时段与强提醒策略待确认，未配置下一次周期提醒。')
-    this.link('记录进展与精力', () => { this.go('record'); })
+    if (!this.space().plans.some((item: PlanItem) => item.date === dayKey(new Date()))) { this.hint('今天还没有事项，点击＋开始安排。') }
+    this.link('记录进展与精力 ›', () => { this.go('record'); })
     this.section('项目进展')
     if (!this.space().projects.length) { this.hint('还没有项目，从一个目标开始。') }
     ForEach(this.space().projects.filter((item: Project) => !item.status || item.status === 'active').slice(0, 2),
@@ -565,63 +641,72 @@ struct Index {
     this.section('最近在读')
     if (!this.space().books.length) { this.hint('尚未获取阅读资料，微信读书 Skill 与业务同步待联调。') }
     ForEach(this.space().books.slice(0, 2), (book: ReadingItem) => { this.bookCard(book) }, (book: ReadingItem) => book.id)
-    this.link('阅读概览', () => { this.switchTab(2); })
+    Button() {
+      Text('阅读概览').fontColor($r('app.color.text_primary'))
+    }.id('home-reading').width('100%').height(48).backgroundColor($r('app.color.bg_surface'))
+      .onClick(() => { this.switchTab(2); })
   }
   @Builder
   projects() {
-    SectionHeading({ title: '项目', subtitle: '目标、需求、任务和成果，放回同一个上下文。' })
-    this.action('新建项目', () => { this.go('new-project'); }, true)
-    TextInput({ text: this.projectQuery, placeholder: $r('app.string.project_search') }).id('project-search')
-      .constraintSize({ minHeight: 48 }).fontSize(16).fontColor($r('app.color.text_primary'))
-      .backgroundColor($r('app.color.bg_surface')).onChange((value: string) => { this.projectQuery = value; })
-    Flex({ wrap: FlexWrap.Wrap }) {
-      ForEach(['active', 'paused', 'completed', 'archived', 'all'], (status: string) => {
-        Button(status === 'all' ? $r('app.string.project_all') : projectStatusLabel(status))
-          .id('project-filter-' + status).constraintSize({ minHeight: 48 }).margin({ right: 8, top: 8 })
-          .backgroundColor(this.projectFilter === status ? $r('app.color.action_primary') : $r('app.color.selection_bg'))
-          .fontColor(this.projectFilter === status ? $r('app.color.action_on_primary') : $r('app.color.selection_text'))
-          .onClick(() => { this.projectFilter = status; })
-      }, (status: string) => status)
+    Row() {
+      Text('项目').fontSize(24).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).layoutWeight(1)
+      Button('＋').id('project-create').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent)
+        .fontColor($r('app.color.action_primary')).accessibilityText('新建项目').onClick(() => { this.go('new-project'); })
+    }.width('100%').margin({ bottom: 12 })
+    Row({ space: 12 }) {
+      TextInput({ text: this.projectQuery, placeholder: $r('app.string.project_search') }).id('project-search')
+        .constraintSize({ minHeight: 48 }).fontSize(16).fontColor($r('app.color.text_primary')).layoutWeight(2)
+        .backgroundColor($r('app.color.bg_surface')).onChange((value: string) => { this.projectQuery = value; })
+      Button((this.projectFilter === 'all' ? '全部' : projectStatusLabel(this.projectFilter)) + '⌄')
+        .id('project-state-filter').layoutWeight(1).constraintSize({ minHeight: 48 })
+        .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_surface'))
+        .onClick(() => { this.detail = 'project-filter'; })
     }.width('100%').margin({ bottom: 12 })
     if (!this.visibleProjects().length) {
       Text($r('app.string.project_empty_filter')).id('project-empty-filter').fontSize(14).fontColor($r('app.color.text_secondary'))
     }
     ForEach(this.visibleProjects(), (project: Project) => { this.projectCard(project) }, (project: Project) => project.id)
-    this.section('独立需求')
-    this.hint('没有明确目标，也可以建立独立的“漫无目的”会话。')
-    ForEach(this.space().needs.filter((need: Need) => need.ownerKind === 'independent'), (need: Need) => { this.needCard(need) }, (need: Need) => need.id)
-    this.action('发起独立需求', () => { this.needProject = ''; this.go('new-need'); })
+    Column({ space: 8 }) {
+      this.body('独立需求 ›'); this.hint('还没形成项目的想法，也有自己的会话')
+    }.alignItems(HorizontalAlign.Start).surface().onClick(() => { this.go('independent-needs'); })
   }
   @Builder
   needCard(need: Need) {
     Column({ space: 4 }) {
       this.body(need.name)
       this.hint(this.owner(need) + ' · ' + new Date(need.createdAt).toLocaleString())
-      this.link('继续会话', () => { this.go('chat/' + need.id); })
-    }.alignItems(HorizontalAlign.Start).surface()
+
+    }.alignItems(HorizontalAlign.Start).surface().onClick(() => { this.go('chat/' + need.id); })
+      .accessibilityText(need.name + '，继续已有需求会话')
   }
   @Builder
   projectDetail(project: Project) {
-    this.link('项目持久会话与显式同步', () => { this.go('project-business/' + project.id); })
     ProjectPanel({ project: this.selectedProject(), writable: this.ready && !this.busy, server: this.data.activeServer,
-      drafts: this.projectPanelDrafts,
+      sections: this.projectSections, error: this.feedbackFailed ? this.feedback : '', drafts: this.projectPanelDrafts, solid: this.solidSurfaces,
+      actionContent: () => { this.projectActions(project); },
+      needsContent: () => { this.projectNeeds(project); },
+      addAction: () => { this.planDate = dayKey(new Date()); this.newPlan(); this.planProject = project.id; },
+      sync: () => { this.go('project-business/' + project.id); },
       save: (change: (space: Space) => void) => this.commit((_next: Workspace, space: Space) => { change(space); }),
       discuss: (item: Project) => { this.discussProject(item); }
     })
+  }
+  @Builder
+  projectNeeds(project: Project) {
     this.section('需求会话')
-    ForEach(this.space().needs.filter((need: Need) => need.ownerKind === 'project' && need.ownerId === project.id), (need: Need) => { this.needCard(need) }, (need: Need) => need.id)
-    this.action('新建项目需求', () => { this.needProject = project.id; this.go('new-need'); })
-    this.section('任务')
-    ForEach(this.space().plans.filter((item: PlanItem) => item.projectId === project.id), (item: PlanItem) => { this.planCard(item) }, (item: PlanItem) => item.id)
-    this.action('添加项目任务', () => { this.planDate = dayKey(new Date()); this.newPlan(); this.planProject = project.id; })
-    this.section('成果、知识与 Agent 运行')
-    this.hint('远端执行、双 Vault 写入和部署回执待协议联调。聊天建议不会自动标为成果或部署成功。')
-    this.link('查看集成状态', () => { this.go('integrations'); })
+    ForEach(this.space().needs.filter((need: Need) => need.ownerKind === 'project' && need.ownerId === project.id),
+      (need: Need) => { this.needCard(need) }, (need: Need) => need.id)
+  }
+  @Builder
+  projectActions(project: Project) {
+    ForEach(this.space().plans.filter((item: PlanItem) => item.projectId === project.id && !item.calendarSource),
+      (item: PlanItem) => { this.planCard(item) }, (item: PlanItem) => item.id)
+    if (!this.space().plans.some((item: PlanItem) => item.projectId === project.id && !item.calendarSource)) { this.hint('尚无本机关联行动，可从＋添加。') }
   }
   @State projectNextStep: string = '';
   @Builder
   newProject() {
-    ProjectPanel({ writable: this.ready && !this.busy, server: this.data.activeServer, drafts: this.projectPanelDrafts,
+    ProjectPanel({ solid: this.solidSurfaces, error: this.feedbackFailed ? this.feedback : '', writable: this.ready && !this.busy, server: this.data.activeServer, drafts: this.projectPanelDrafts,
       save: (change: (space: Space) => void) => this.commit((_next: Workspace, space: Space) => { change(space); }),
       opened: (id: string) => { this.back(); this.go('project/' + id); }
     })
@@ -653,11 +738,14 @@ struct Index {
       this.hint('此事项来自手机日历，日期须与原计划一致；编辑仅修改本机副本。')
     }
     this.input('计划事项（1–200 字）', this.planTitle, (value: string) => { this.planTitle = value; }, '例如：阅读第 3 章并整理笔记')
+    this.area('补充说明（可选）', this.planNote, (value: string) => { this.planNote = value; })
+    this.action('项目与安排：' + (this.planProject ? '已归属项目' : '独立事项') + (this.planPriority === 'important' ? ' · 重要' : '') + (this.planMinutes ? ' · ' + this.planMinutes + ' 分钟' : ''), () => { this.planOptions = !this.planOptions; })
+    if (this.planOptions) {
     this.check('重要事项', this.planPriority === 'important', (value: boolean) => { this.planPriority = value ? 'important' : 'normal'; })
     this.input('预计用时（可选，分钟）', this.planMinutes, (value: string) => { this.planMinutes = value; })
-    this.area('补充说明（可选）', this.planNote, (value: string) => { this.planNote = value; })
     this.section('所属项目')
     this.planProjectPicker()
+    }
     this.action(this.planEditId ? '保存修改' : '添加到当日计划', () => { this.addPlan(); }, true)
     if (this.planEditId) {
       this.action('移除计划事项', () => { this.confirmPlanDelete = true; })
@@ -671,12 +759,9 @@ struct Index {
   @Builder
   plans() {
     SectionHeading({ title: '每日计划', subtitle: '安排当天行动，逐项确认状态；数据保存在当前空间的本机副本。' })
-    Row({ space: 8 }) {
-      Button('前一天').backgroundColor($r('app.color.selection_bg')).fontColor($r('app.color.selection_text')).constraintSize({ minHeight: 48 }).layoutWeight(1).enabled(!this.busy).onClick(() => { this.shiftPlanDate(-1); })
-      Button('今天').backgroundColor($r('app.color.selection_bg')).fontColor($r('app.color.selection_text')).constraintSize({ minHeight: 48 }).layoutWeight(1).enabled(!this.busy).onClick(() => { this.changePlanDate(dayKey(new Date())); })
-      Button('后一天').backgroundColor($r('app.color.selection_bg')).fontColor($r('app.color.selection_text')).constraintSize({ minHeight: 48 }).layoutWeight(1).enabled(!this.busy).onClick(() => { this.shiftPlanDate(1); })
-    }.width('100%')
-    this.input('查看日期 YYYY-MM-DD', this.planDate, (value: string) => { this.changePlanDate(value); })
+    Text(this.planDate + ' ›').id('plan-date-selector').fontSize(18).constraintSize({ minHeight: 48 })
+      .fontColor($r('app.color.action_primary')).onClick(() => { this.detail = 'date'; })
+    WorkspaceAction({ label: '工具与来源 ···', action: () => { this.detail = 'plan-tools'; } }).id('plan-tools')
     if (!validDate(this.planDate)) {
       Text('请输入有效日期后查看计划。').fontColor($r('app.color.status_error')).fontSize(14)
     } else {
@@ -684,7 +769,6 @@ struct Index {
         .fontSize(16).lineHeight(24).fontColor($r('app.color.text_primary'))
       Text(`已加入日历事项占用 ${calendarBusyMinutes(this.space(), this.planDate)} 分钟（重叠去重，全天单列）；不计入事务完成统计。`)
         .fontSize(14).lineHeight(21).fontColor($r('app.color.text_secondary'))
-      this.action('添加计划', () => { this.newPlan(); }, true)
       this.section('当日事项')
       Row({ space: 4 }) {
         ForEach(['all', 'todo', 'doing', 'done'], (filter: string) => {
@@ -699,6 +783,11 @@ struct Index {
           .fontSize(16).lineHeight(24).fontColor($r('app.color.text_secondary'))
       }
       ForEach(this.visiblePlans(), (item: PlanItem) => { this.planCard(item) }, (item: PlanItem) => item.id)
+      this.action('添加事项', () => { this.newPlan(); }, true)
+    }
+  }
+  @Builder
+  calendarPicker() {
       this.section('日历安排 · 手机日历')
       Text(this.calendarDate === this.planDate ? `${this.calendarDate} · ${this.calendarEntries.length} 条日程，由你选择重要事项` : '尚未读取所选日期日历。').fontSize(14).lineHeight(21)
         .fontColor($r('app.color.text_secondary'))
@@ -710,7 +799,7 @@ struct Index {
           Column({ space: 4 }) {
             this.check(entry.title, this.calendarSelection.includes(entry.key), (selected: boolean) => {
               this.calendarSelection = selected ? this.calendarSelection.concat(entry.key) : this.calendarSelection.filter((key: string) => key !== entry.key);
-            })
+            }, !this.space().plans.some((plan: PlanItem) => plan.calendarSource?.key === entry.key))
             Text(entry.allDay ? '全天' : new Date(entry.start).toLocaleString() + ' — ' + new Date(entry.end).toLocaleString())
               .fontSize(14).lineHeight(21).fontColor($r('app.color.text_secondary'))
             if (this.space().plans.some((plan: PlanItem) => plan.calendarSource?.key === entry.key)) {
@@ -723,6 +812,9 @@ struct Index {
           this.action('确认加入所选日程', () => { this.importCalendar(); })
         }
       }
+  }
+  @Builder
+  suggestionPicker() {
       this.section('历史建议 · 本机规则')
       this.hint('回看所选日期之前 7 天未完成事务和记录中的新增待办。逐项采纳会新建待完成事项，原事项保留；相同来源同日不会重复采纳。')
       if (!planSuggestions(this.space(), this.planDate).length) {
@@ -731,23 +823,16 @@ struct Index {
       ForEach(planSuggestions(this.space(), this.planDate), (suggestion: PlanSuggestion) => {
         Column({ space: 8 }) {
           Text(suggestion.title).fontSize(16).lineHeight(24).fontColor($r('app.color.text_primary'))
-          Text(suggestion.reason).fontSize(14).lineHeight(21).fontColor($r('app.color.text_secondary'))
-          this.action('采纳到 ' + this.planDate, () => {
-            this.commit((_next: Workspace, space: Space) => { adoptPlanSuggestion(space, this.planDate, suggestion.key); });
-          })
-        }.surface()
+          Text('查看来源与采纳依据 ›').fontSize(14).fontColor($r('app.color.text_secondary'))
+        }.surface().onClick(() => { this.detail = 'suggestion/' + suggestion.key; })
       }, (suggestion: PlanSuggestion) => suggestion.key)
-      this.link('查看记录与本机汇总', () => { this.reportDate = this.planDate; this.go('report'); })
-      this.section('晚间制定计划提醒')
-      this.hint('可配置普通系统每日提醒；锁屏强提醒与点击直达每日计划待设备接入验证。')
-      this.link('配置制定计划提醒', () => { this.reminderTitle = '制定明日计划'; this.go('reminders'); })
-      this.hint('远端 AI 个性化建议、自动日报与多端同步尚未接入。')
-    }
   }
   @Builder
   record() {
     SectionHeading({ title: '记录进展与精力', subtitle: '可以只写正文；发生区间与保存时间分开。' })
     this.area('完成了什么 / 快速记录', this.recordText, (value: string) => { this.recordText = value; })
+    this.action('时间、精力与补记选项', () => { this.recordOptions = !this.recordOptions; })
+    if (this.recordOptions) {
     this.input('开始时间（可选，如 2026-10-01T09:00）', this.recordStart, (value: string) => { this.recordStart = value; })
     this.input('结束时间（与开始同时填写）', this.recordEnd, (value: string) => { this.recordEnd = value; })
     this.input('未完成事项（可选）', this.recordUnfinished, (value: string) => { this.recordUnfinished = value; })
@@ -755,6 +840,7 @@ struct Index {
     this.input('决策（可选）', this.recordDecision, (value: string) => { this.recordDecision = value; })
     this.input('新增待办（可选）', this.recordTodo, (value: string) => { this.recordTodo = value; })
     this.check('这是补记', this.backfilled, (value: boolean) => { this.backfilled = value; })
+    }
     this.action('仅保存到本机收件箱', () => { this.saveRecord(); }, true)
     this.link('查看收件箱', () => { this.go('inbox'); })
   }
@@ -764,10 +850,8 @@ struct Index {
     ForEach(this.space().records, (record: IntervalRecord) => {
       Column({ space: 8 }) {
         this.hint(new Date(record.createdAt).toLocaleString() + (record.backfilled ? ' · 补记' : '') + ' · 保存时间')
-        this.body(record.text)
-        this.action('建立需求后交给 Hermes', () => { this.needDescription = record.text; this.go('new-need'); })
-        if (record.nextTodo) { this.action('确认新增待办为计划', () => { this.planDate = dayKey(new Date()); this.newPlan(); this.planTitle = record.nextTodo; }) }
-      }.alignItems(HorizontalAlign.Start).surface()
+        Text(record.text).fontSize(16).lineHeight(25).maxLines(3).textOverflow({ overflow: TextOverflow.Ellipsis }).fontColor($r('app.color.text_primary'))
+      }.alignItems(HorizontalAlign.Start).surface().onClick(() => { this.detail = 'record/' + record.id; })
     }, (record: IntervalRecord) => record.id)
     if (!this.space().records.length) { this.hint('还没有记录，写一句就好。') }
     this.link('记一笔', () => { this.go('record'); })
@@ -798,7 +882,7 @@ struct Index {
   @Builder
   bookDetail(book: ReadingItem) {
     SectionHeading({ title: book.title, subtitle: book.source })
-    this.bookCard(book)
+    this.hint('来源：' + book.source)
     this.section('原始摘抄与笔记')
     ForEach(book.excerpts, (text: string) => { this.body(text) })
     this.section('总结')
@@ -807,51 +891,72 @@ struct Index {
   }
   @Builder
   chat(need: Need) {
-    SectionHeading({ title: need.name, subtitle: this.owner(need) })
-    this.hint('本机历史完整保存。兼容文本接口本次携带最近 40 条；服务端持久化与运行恢复待联调。')
-    this.action('重命名或归入项目', () => { this.rename = need.name; this.moveProject = need.ownerKind === 'project' ? need.ownerId : ''; this.go('move/' + need.id); })
-    // Read the current @State workspace in the update callback, not the builder's entry-time snapshot.
     ForEach(this.selectedNeed()?.messages ?? [], (message: Message, index: number) => {
-      Column({ space: 8 }) {
-        this.hint(message.role === 'user' ? '你' : 'Hermes · AI 生成')
-        Text(message.content).fontSize(16).lineHeight(24).fontColor($r('app.color.text_primary')).copyOption(CopyOptions.InApp)
-      }.alignItems(HorizontalAlign.Start).surface().backgroundColor(message.role === 'user' ? $r('app.color.selection_bg') : $r('app.color.bg_surface'))
-    }, (_message: Message, index: number) => String(index))
+      Row() {
+        if (message.role === 'user') { Blank().width('18%') }
+        Column({ space: 6 }) {
+          Text(message.role === 'user' ? '你' : 'Hermes · AI').fontSize(12).fontColor($r('app.color.text_secondary'))
+          MessageContent({ content: message.content, openLink: (url: string) => {
+            openExternalLink(this.context(), url).catch((error: Error) => { this.notice(error.message, true); });
+          } })
+        }.alignItems(HorizontalAlign.Start).padding(16).layoutWeight(1)
+          .borderRadius(message.role === 'user' ? { topLeft: 20, topRight: 20, bottomLeft: 20, bottomRight: 6 } : { topLeft: 20, topRight: 20, bottomLeft: 6, bottomRight: 20 })
+          .backgroundColor(message.role === 'user' ? $r('app.color.selection_bg') : $r('app.color.bg_surface'))
+        if (message.role !== 'user') { Blank().width('12%') }
+      }.width('100%').margin({ bottom: 12 })
+    }, (_message: Message, index: number) => need.id + '-' + index)
     if (this.pendingKey === this.routeKey()) {
       if (this.pendingPrompt) {
-        Column({ space: 8 }) {
-          Text('你').fontSize(14)
-          Text(this.pendingPrompt).copyOption(CopyOptions.InApp)
-        }.surface().backgroundColor($r('app.color.selection_bg'))
-          .onAreaChange((_old: Area, area: Area) => {
-            if (this.sending && !this.pendingScrolled) {
-              this.pendingScrolled = true;
-              this.scroller.scrollTo({ xOffset: 0, yOffset: Number(area.position.y) });
-            }
-          })
+        Row() {
+          Blank().width('18%')
+          Column({ space: 6 }) {
+            this.hint(this.sending ? '你 · 等待回执' : '你 · 受理状态待确认')
+            this.body(this.pendingPrompt)
+          }.surface().layoutWeight(1).backgroundColor($r('app.color.selection_bg'))
+        }.width('100%')
       }
-      if (this.sending) {
-        Row({ space: 8 }) { LoadingProgress().width(24).height(24); Text('正在等待 Hermes…') }
-        WorkspaceAction({ label: '停止等待（服务端可能继续执行）', action: () => { this.client.stop(); } })
-      }
+      if (this.sending) { this.hint('Hermes 正在回复…') }
+      else if (this.pendingPrompt) { this.hint('受理状态无法确认。兼容文本接口不提供原请求查询；请保留输入，不要重复发送。') }
       if (this.sendError) { Text(this.sendError).fontColor($r('app.color.status_error')).copyOption(CopyOptions.InApp) }
     }
+    ForEach(this.space().runs.filter((run: AgentRun) => run.needId === need.id), (run: AgentRun) => { this.runCard(run) }, (run: AgentRun) => run.id)
+  }
+  @Builder
+  chatComposer() {
+    Column({ space: 6 }) {
+      if (this.shareCalendar || this.shareDevice || this.shareNeed) {
+        this.action('本次上下文 · ' + (Number(this.shareCalendar) + Number(this.shareDevice) + Number(!!this.shareNeed)) + ' 项 · 查看与移除', () => { this.detail = 'context'; })
+      }
+      if (this.newMessages) { this.action('查看新消息 ↓', () => { this.scroller.scrollEdge(Edge.Bottom); this.newMessages = false; }) }
+      Row({ space: 8 }) {
+        Button('＋').id('chat-context').width(48).constraintSize({ minHeight: 48 }).backgroundColor(Color.Transparent)
+          .fontColor($r('app.color.action_primary')).accessibilityText('选择本次发送上下文').onClick(() => { this.detail = 'context'; })
+        TextArea({ text: this.chatDraft, placeholder: '继续这个需求' }).id('input-继续这个需求').layoutWeight(1)
+          .constraintSize({ minHeight: 48, maxHeight: 150 }).maxLength(4000).fontSize(16).fontColor($r('app.color.text_primary'))
+          .backgroundColor($r('app.color.bg_surface')).enabled(!this.busy).onChange((value: string) => { this.chatDraft = value; })
+        Button(this.sending ? '停止' : '发送').id('chat-send').width(64).constraintSize({ minHeight: 48 })
+          .backgroundColor($r('app.color.action_primary')).fontColor($r('app.color.action_on_primary'))
+          .enabled(this.sending || (this.ready && !this.busy && !!this.chatDraft.trim() && !(this.pendingKey === this.routeKey() && this.pendingPrompt)))
+          .onClick(() => { if (this.sending) { this.client.stop(); } else { this.send(); } })
+      }.width('100%')
+    }.padding(12).width('100%').backgroundColor(this.solidSurfaces ? $r('app.color.bg_surface') : $r('app.color.glass_floating'))
+      .backgroundBlurStyle(this.solidSurfaces ? BlurStyle.NONE : BlurStyle.Thin)
+  }
+  @Builder
+  contextPicker() {
     this.section('本次上下文授权')
     this.check('分享今日日历快照', this.shareCalendar, (value: boolean) => { this.shareCalendar = value; })
     this.check('分享设备快照', this.shareDevice, (value: boolean) => { this.shareDevice = value; })
     this.action('读取快照', () => { this.refreshCalendar(); })
-    this.hint('可选：引用另一个本服务器会话最近 6 条消息；选择即允许本次发送，跨项目来源明确展示。')
-    this.action((this.shareNeed ? '' : '✓ ') + '不引用其他会话', () => { this.shareNeed = ''; })
-    ForEach(this.space().needs.filter((item: Need) => item.id !== need.id), (source: Need) => {
+    this.hint('选择仅用于本次发送；来源和采集时间可在下方核对。')
+    this.action('不引用其他会话', () => { this.shareNeed = ''; })
+    ForEach(this.space().needs.filter((item: Need) => item.id !== this.selectedNeed()?.id), (source: Need) => {
       this.action((this.shareNeed === source.id ? '✓ ' : '') + this.owner(source) + ' / ' + source.name, () => { this.shareNeed = source.id; })
     }, (source: Need) => source.id)
     this.hint(this.preview())
-    this.hint('分享内容会发送给 Hermes 及其模型服务，并保存在该需求历史中；后续可能继续携带。不会授予跨项目写入或部署权限。')
-    this.area('继续这个需求', this.chatDraft, (value: string) => { this.chatDraft = value; })
-    this.action('发送给 Hermes', () => { this.send(); }, true)
-    this.section('任务 / 运行 / 成果')
-    this.hint('生成建议不等于任务执行。运行事件、成果与部署状态需要服务端真实回执。')
-    ForEach(this.space().runs.filter((run: AgentRun) => run.needId === need.id), (run: AgentRun) => { this.runCard(run) }, (run: AgentRun) => run.id)
+    this.hint('分享给 Hermes 及模型服务，保存在该需求历史中；不授予执行或部署权限。')
+    this.action('移除全部附加上下文', () => { this.shareCalendar = false; this.shareDevice = false; this.shareNeed = ''; })
+    this.action('确认本次选择', () => { this.detail = ''; }, true)
   }
   @Builder
   runCard(run: AgentRun) {
@@ -879,13 +984,12 @@ struct Index {
   @Builder
   profile() {
     SectionHeading({ title: '我的', subtitle: '个人事务的统一入口，连接你自己部署的 Hermes。' })
-    this.section('Agent 连接')
-    this.body(this.data.connection?.name || '尚未配置')
-    this.hint(this.connectionStatus)
-    this.hint('当前空间：' + this.data.activeServer)
-    this.hint(this.space().lastSyncAt === null ? '尚未业务同步 · 当前为本机副本' : '最后同步：' + new Date(this.space().lastSyncAt as number).toLocaleString())
+    Column({ space: 8 }) {
+      this.body(this.data.connection?.name || '尚未配置 Agent')
+      this.hint(this.connectionStatus)
+      this.hint(this.space().lastSyncAt === null ? '本机副本 · 尚未业务同步' : '最后同步：' + new Date(this.space().lastSyncAt as number).toLocaleString())
+    }.alignItems(HorizontalAlign.Start).surface().onClick(() => { this.go('connection'); })
     this.action('独立业务服务（本地预览）', () => { this.go('business'); })
-    this.action('管理连接', () => { this.go('connection'); }, true)
     this.action('查看本地迁移收件箱', () => {
       this.commit((next: Workspace) => { next.activeServer = 'local'; }, '已切换到本地空间，不自动上传历史记录').then((saved: boolean) => { if (saved) { this.go('inbox'); } });
     })
@@ -895,40 +999,57 @@ struct Index {
     this.section('数据来源与授权')
     this.link('日历 / 健康 / 微信读书 / IMA', () => { this.go('integrations'); })
     this.section('知识空间')
-    this.hint('手工托管 Vault：学习、鸿蒙及设备实践。Agent 托管 Vault：远端工程与实践。两者采用 PARA，写入权限尚待核验。')
+    this.link('手工 / Agent 知识空间 ›', () => { this.go('vaults'); })
     this.section('提醒与报告')
     this.link('系统提醒与周期策略', () => { this.go('reminders'); })
     this.link('记录与日报', () => { this.go('report'); })
+    this.link('显示模式与材质 ›', () => { this.go('appearance'); })
+  }
+  @Builder
+  appearance() {
+    SectionHeading({ title: '显示模式', subtitle: '即时预览并保存；失败保留原有效设置。' })
+    this.check('减少透明度 · 实色卡片', this.solidSurfaces, (value: boolean) => {
+      this.commit((next: Workspace) => { next.solidSurfaces = value; }, '材质偏好已保存').then((saved: boolean) => {
+        if (saved) { this.solidSurfaces = value; }
+      });
+    })
     this.section('显示模式（保存到本机）')
     ForEach(['跟随系统', '浅色', '深色'], (label: string, index: number) => {
-      this.action((this.data.appearance === index ? '✓ ' : '') + label, () => {
-        this.commit((next: Workspace) => { next.appearance = index; }, '显示偏好已保存').then((saved: boolean) => {
-          if (saved) { try { this.applyAppearance(index); } catch { this.notice('偏好已保存，当前系统切换失败，重启后重试', true); } }
-        });
-      })
+      this.action((this.data.appearance === index ? '✓ ' : '') + label, () => { this.setAppearance(index); })
     })
   }
   @Builder
   connection() {
-    SectionHeading({ title: 'Agent 连接', subtitle: '保存、测试、连接与同步分别反馈。Token 使用系统安全存储。' })
-    this.input('连接名称', this.name, (value: string) => { this.name = value; })
+    SectionHeading({ title: 'Agent 连接', subtitle: this.connectionStatus })
+    this.action('地址 · ' + (this.host ? this.protocol + '://' + this.host + ':' + this.port : '未设置'), () => { this.connectionGroup = 'address'; this.detail = 'connection'; })
+    this.action('凭据 · ' + (this.token ? '已填写（安全存储）' : '未填写'), () => { this.connectionGroup = 'secret'; this.detail = 'connection'; })
+    this.action('高级配置 · ' + (this.name || '未命名'), () => { this.connectionGroup = 'advanced'; this.detail = 'connection'; })
+    this.action('连接诊断', () => { this.testConnection(); })
+    this.action('仅保存配置', () => { this.saveConnection(false); })
+    this.action('保存并连接', () => { this.saveConnection(true); }, true)
+    this.hint('替换地址使用独立空间。保留字段只更新本页草稿，最终保存才持久化。Token 不保存在普通草稿中。')
+  }
+  @Builder
+  connectionFields() {
+    if (this.connectionGroup === 'address') {
     this.input('IP / 域名（不含协议与端口）', this.host, (value: string) => { this.host = value; })
     this.check('HTTPS（关闭则为 HTTP）', this.protocol === 'https', (value: boolean) => { this.protocol = value ? 'https' : 'http'; })
     this.input('端口', this.port, (value: string) => { this.port = value; })
-    this.input('API 基础路径（可选）', this.basePath, (value: string) => { this.basePath = value; })
-    this.input('文本模型', this.model, (value: string) => { this.model = value; })
+    } else if (this.connectionGroup === 'secret') {
     this.hint('Token · 安全保存，不进入普通配置')
     TextInput({ text: this.token, placeholder: 'Token' }).type(this.showToken ? InputType.Normal : InputType.Password).field()
       .fontColor($r('app.color.text_primary')).placeholderColor($r('app.color.text_secondary')).fontSize(16).enabled(!this.busy)
       .onChange((value: string) => { this.token = value; })
     this.check('显示 Token', this.showToken, (value: boolean) => { this.showToken = value; })
+    } else {
+    this.input('连接名称', this.name, (value: string) => { this.name = value; })
+    this.input('API 基础路径（可选）', this.basePath, (value: string) => { this.basePath = value; })
+    this.input('文本模型', this.model, (value: string) => { this.model = value; })
     this.check('明确允许受信任私有网络 HTTP', this.allowHttp, (value: boolean) => { this.allowHttp = value; })
     this.hint('HTTP 不加密；仅支持内网、回环及 Tailscale 100.64/10 地址，需自行确认网络受信任。')
     this.check('下次打开时连接此 Agent（不重放任务）', this.autoConnect, (value: boolean) => { this.autoConnect = value; })
-    this.action('测试当前输入', () => { this.testConnection(); })
-    this.action('保存配置', () => { this.saveConnection(false); })
-    this.action('保存并连接', () => { this.saveConnection(true); }, true)
-    this.hint('更换地址后使用独立数据空间。旧数据保留，草稿不自动转移或发送；配置和同步不是同一状态。')
+    }
+    this.action('保留修改', () => { this.detail = ''; }, true)
   }
   @Builder
   integrations() {
@@ -942,7 +1063,8 @@ struct Index {
     }
     this.action('按需授权并刷新', () => { this.refreshCalendar(); })
     ForEach(this.capabilities, (item: IntegrationCapability) => {
-      Column({ space: 8 }) { this.body(item.title); this.hint(item.status); this.hint(item.requirement) }.alignItems(HorizontalAlign.Start).surface()
+      Column({ space: 8 }) { this.body(item.title); this.hint(item.status) }.alignItems(HorizontalAlign.Start).surface()
+        .onClick(() => { this.detail = 'capability/' + item.id; })
     }, (item: IntegrationCapability) => item.id)
   }
   @Builder
@@ -961,6 +1083,83 @@ struct Index {
     }, (task: Task) => task.id)
   }
   @Builder
+  detailContent() {
+    Scroll() {
+      Column({ space: 12 }) {
+        this.action('关闭 · 保留当前草稿', () => { this.detail = ''; })
+        if (this.detail.startsWith('plan/')) {
+          ForEach(this.space().plans.filter((item: PlanItem) => item.id === this.detail.slice(5)), (item: PlanItem) => {
+            SectionHeading({ title: item.title, subtitle: item.date + ' · ' + (item.calendarSource ? '手机日历副本' : '本机事务') })
+            this.body(item.note || '无补充说明')
+            this.hint('项目：' + (this.space().projects.find((project: Project) => project.id === item.projectId)?.name || '独立事项'))
+            this.hint((item.priority === 'important' ? '重要事项' : '普通事项') + (item.minutes ? ' · 预计 ' + item.minutes + ' 分钟' : ''))
+            if (item.calendarSource) { this.hint(item.calendarSource.allDay ? '全天' : new Date(item.calendarSource.start).toLocaleString() + ' — ' + new Date(item.calendarSource.end).toLocaleString()) }
+            if (item.suggestionReason) { this.hint('采纳依据：' + item.suggestionReason) }
+            ForEach(['todo', 'doing', 'done'], (status: string) => {
+              this.action((item.status === status ? '✓ ' : '') + (status === 'todo' ? '待完成' : status === 'doing' ? '进行中' : '已完成'), () => { this.setPlan(item.id, status as WorkStatus); })
+            }, (status: string) => status)
+            this.action('继续该事项会话', () => { this.detail = ''; this.openLinked(item.title, 'plan', item.id); }, true)
+            this.action('编辑 / 改期 / 移除', () => { this.detail = ''; this.editPlan(item.id); })
+          }, (item: PlanItem) => item.id)
+        } else if (this.detail.startsWith('record/')) {
+          ForEach(this.space().records.filter((record: IntervalRecord) => record.id === this.detail.slice(7)), (record: IntervalRecord) => {
+            this.body(record.text)
+            this.hint(record.start && record.end ? new Date(record.start).toLocaleString() + ' — ' + new Date(record.end).toLocaleString() : '未填写发生区间')
+            this.hint('精力：' + (record.energy || '未填写'))
+            this.body('未完成：' + (record.unfinished || '未填写'))
+            this.body('决策：' + (record.decision || '未填写'))
+            this.body('新增待办：' + (record.nextTodo || '未填写'))
+            this.action('建立需求后交给 Hermes', () => { this.needDescription = record.text; this.go('new-need'); }, true)
+            if (record.nextTodo) { this.action('新增待办 · 先编辑确认', () => { this.planDate = dayKey(new Date()); this.newPlan(); this.planTitle = record.nextTodo; }) }
+          }, (record: IntervalRecord) => record.id)
+        } else if (this.detail.startsWith('suggestion/')) {
+          this.action('返回历史建议', () => { this.detail = 'suggestions'; })
+          ForEach(planSuggestions(this.space(), this.planDate).filter((suggestion: PlanSuggestion) => suggestion.key === this.detail.slice(11)), (suggestion: PlanSuggestion) => {
+            this.body(suggestion.title); this.hint(suggestion.reason)
+            this.action('采纳到 ' + this.planDate, () => {
+              this.commit((_next: Workspace, space: Space) => { adoptPlanSuggestion(space, this.planDate, suggestion.key); }).then((saved: boolean) => { if (saved) { this.detail = 'suggestions'; } });
+            }, true)
+          }, (suggestion: PlanSuggestion) => suggestion.key)
+        } else if (this.detail.startsWith('capability/')) {
+          ForEach(this.capabilities.filter((item: IntegrationCapability) => item.id === this.detail.slice(11)), (item: IntegrationCapability) => {
+            this.body(item.title); this.hint(item.status); this.body(item.requirement)
+          }, (item: IntegrationCapability) => item.id)
+        } else if (this.detail === 'new') {
+          this.action('每日事项', () => { this.changePlanDate(dayKey(new Date())); this.newPlan(); })
+          this.action('记录进展', () => { this.go('record'); })
+          this.action('独立需求', () => { this.needProject = ''; this.go('new-need'); })
+        } else if (this.detail === 'date') {
+          this.input('查看日期 YYYY-MM-DD', this.planDate, (value: string) => { this.changePlanDate(value); })
+          this.action('前一天', () => { this.shiftPlanDate(-1); })
+          this.action('今天', () => { this.changePlanDate(dayKey(new Date())); })
+          this.action('后一天', () => { this.shiftPlanDate(1); })
+        } else if (this.detail === 'plan-tools') {
+          this.action('手机日历', () => { this.detail = 'calendar'; })
+          this.action('历史建议', () => { this.detail = 'suggestions'; })
+          this.action('记录与日报', () => { this.reportDate = this.planDate; this.go('report'); })
+          this.action('晚间提醒', () => { this.reminderTitle = '制定明日计划'; this.go('reminders'); })
+        } else if (this.detail === 'calendar') { this.calendarPicker() }
+        else if (this.detail === 'suggestions') { this.suggestionPicker() }
+        else if (this.detail === 'context') { this.contextPicker() }
+        else if (this.detail === 'connection') { this.connectionFields() }
+        else if (this.detail === 'project-filter') {
+          ForEach(['active', 'paused', 'completed', 'archived', 'all'], (status: string) => {
+            Button(status === 'all' ? '全部' : projectStatusLabel(status)).id('project-filter-' + status).width('100%').constraintSize({ minHeight: 48 })
+              .backgroundColor($r('app.color.bg_surface')).fontColor($r('app.color.text_primary'))
+              .onClick(() => { this.projectFilter = status; this.detail = ''; })
+          }, (status: string) => status)
+        } else if (this.detail === 'chat-more' && this.selectedNeed()) {
+          this.body(this.selectedNeed()?.name || '')
+          this.hint(this.connectionStatus)
+          this.hint('兼容文本接口携带最近40条历史。超时无法确认受理，不会自动重放；停止等待不代表取消远端运行。')
+          this.action('名称与归属', () => { const need = this.selectedNeed(); if (need) { this.rename = need.name; this.moveProject = need.ownerKind === 'project' ? need.ownerId : ''; this.go('move/' + need.id); } })
+          this.action('连接设置', () => { this.go('connection'); })
+        }
+        if (this.feedbackFailed) { Text(this.feedback).fontSize(14).fontColor($r('app.color.status_error')) }
+      }.padding(24).width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').height('100%')
+  }
+  @Builder
   navigation(index: number) {
     WorkspaceNavigationItem({
       label: this.labels[index], icon: this.icons[index], selected: this.tab === index,
@@ -971,10 +1170,15 @@ struct Index {
   content() {
     Scroll(this.scroller) {
       Column() {
-        if (this.route) { this.link('返回', () => { this.back(); }) }
+        if (this.route && !this.route.startsWith('chat/')) { this.link('返回', () => { this.back(); }) }
         if (!this.ready) { this.hint('本机数据未就绪；若读取失败，请重新打开应用。未用空数据覆盖旧文件。') }
         if (this.loaded && this.route === 'new-project') { this.newProject() }
         else if (this.route.startsWith('project/') && this.selectedProject()) { this.projectDetail(this.selectedProject() as Project) }
+        else if (this.route === 'independent-needs') {
+          SectionHeading({ title: '独立需求', subtitle: '每个需求保留自己的身份与历史' })
+          this.action('＋ 发起独立需求', () => { this.needProject = ''; this.go('new-need'); })
+          ForEach(this.space().needs.filter((need: Need) => need.ownerKind === 'independent'), (need: Need) => { this.needCard(need) }, (need: Need) => need.id)
+        }
         else if (this.route === 'new-need') { this.newNeed() }
         else if (this.route.startsWith('chat/') && this.selectedNeed()) { this.chat(this.selectedNeed() as Need) }
         else if (this.route.startsWith('move/')) { this.move() }
@@ -983,10 +1187,12 @@ struct Index {
         else if (this.route === 'record') { this.record() }
         else if (this.route === 'inbox') { this.inbox() }
         else if (this.route === 'report') { this.report() }
-        else if (this.route.startsWith('project-business/')) {
-          BusinessPanel({ project: this.space().projects.find((item: Project) => item.id === this.route.slice('project-business/'.length)) })
+        else if (this.route === 'appearance') { this.appearance() }
+        else if (this.route === 'vaults') {
+          SectionHeading({ title: '知识空间', subtitle: '托管方式与写入授权分别核对' })
+          Column({ space: 12 }) { this.body('手工托管 Vault'); this.hint('学习、鸿蒙及设备实践；PARA：项目 / 领域 / 资源 / 归档。写入权限尚待核验。') }.surface()
+          Column({ space: 12 }) { this.body('Agent 托管 Vault'); this.hint('远端工程与实践；PARA 同上。托管不是自动执行或无限写入授权。Obsidian 插件同步尚待接入。') }.surface()
         }
-        else if (this.route === 'business') { BusinessPanel() }
         else if (this.route === 'connection') { this.connection() }
         else if (this.route === 'integrations') { this.integrations() }
         else if (this.route === 'reminders') { this.reminders() }
@@ -995,36 +1201,71 @@ struct Index {
         else if (this.loaded && this.tab === 1) { this.projects() }
         else if (this.loaded && this.tab === 2) { this.reading() }
         else if (this.loaded) { this.profile() }
-        if (this.ready && !this.route) {
-          this.section('记录 / 发起需求')
-          this.link('记一笔', () => { this.go('record'); })
-          this.action('发起需求', () => { this.needProject = ''; this.go('new-need'); })
-        }
-      }.width('100%').constraintSize({ maxWidth: 720 }).padding(this.availableWidth >= 600 ? 24 : 16).alignItems(HorizontalAlign.Start)
-    }.id('workspace-scroll').width('100%').height('100%').align(Alignment.Top)
+      }.width('100%').constraintSize({ maxWidth: 720 }).padding({ top: 16, left: this.availableWidth >= 600 ? 24 : 16, right: this.availableWidth >= 600 ? 24 : 16, bottom: this.route ? 24 : 132 + (this.feedback ? 96 : 0) + (this.undoPlanId ? 48 : 0) }).alignItems(HorizontalAlign.Start)
+    }.id('workspace-scroll').width('100%').layoutWeight(1)
+      .onScrollStop(() => { this.followingMessages = this.scroller.isAtEnd(); })
   }
   build() {
-    Column() {
-      Row() {
-        Text('HermesEye').fontSize(18).fontColor($r('app.color.action_primary')).layoutWeight(1)
-        Button('Agent 状态', { type: ButtonType.Normal }).constraintSize({ minHeight: 48 }).fontSize(14)
-          .backgroundColor($r('app.color.selection_bg')).fontColor($r('app.color.selection_text'))
-          .onClick(() => { this.switchTab(3); })
-      }.padding({ left: 16, right: 16 }).width('100%')
-      Row() {
-        if (this.availableWidth >= 840) {
-          Column({ space: 12 }) { ForEach(this.labels, (_label: string, index: number) => { this.navigation(index) }) }
-            .width(112).padding(12).height('100%').backgroundColor($r('app.color.bg_surface'))
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        if (this.route !== 'business' && !this.route.startsWith('project-business/')) {
+        Row({ space: 8 }) {
+          if (this.route.startsWith('chat/')) {
+            Button('返回').constraintSize({ minHeight: 48 }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(() => { this.back(); })
+            Column({ space: 2 }) {
+              Text(this.selectedNeed()?.name || '需求会话').fontSize(18).maxLines(2).fontColor($r('app.color.text_primary'))
+              Text(this.selectedNeed() ? this.owner(this.selectedNeed() as Need) : '').fontSize(12).fontColor($r('app.color.text_secondary'))
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            Button('···').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary'))
+              .accessibilityText('会话信息与更多').onClick(() => { this.detail = 'chat-more'; })
+          } else {
+            Text('HermesEye').fontSize(18).fontColor($r('app.color.action_primary')).layoutWeight(1)
+            Button('Agent 状态', { type: ButtonType.Normal }).constraintSize({ minHeight: 48 }).fontSize(14)
+              .backgroundColor(Color.Transparent).fontColor($r('app.color.selection_text')).onClick(() => { this.switchTab(3); })
+          }
+        }.padding({ left: 16, right: 16 }).width('100%')
         }
-        Column() { this.content() }.layoutWeight(1).height('100%')
-      }.width('100%').layoutWeight(1)
-      if (this.availableWidth < 840 && !this.keyboardVisible) {
-        Row() {
-          ForEach(this.labels, (_label: string, index: number) => { Column() { this.navigation(index) }.layoutWeight(1) })
-        }.width('100%').padding(8).backgroundColor($r('app.color.bg_surface'))
-          .border({ width: { top: 1 }, color: $r('app.color.border_subtle') })
+        Column() {
+          if (this.route === 'business' || this.route.startsWith('project-business/')) {
+            BusinessPanel({ project: this.route.startsWith('project-business/') ? this.space().projects.find((item: Project) => item.id === this.route.slice('project-business/'.length)) : undefined, back: () => { this.back(); } })
+          } else { this.content() }
+        }.layoutWeight(1).width('100%')
+        if (this.feedback && (this.route || this.keyboardVisible)) {
+          Text(this.feedback).fontSize(14).fontColor(this.feedbackFailed ? $r('app.color.status_error') : $r('app.color.text_secondary'))
+            .padding(8).width('100%').maxLines(3)
+          if (this.undoPlanId && this.undoSpace === this.data.activeServer) {
+            Button('撤销状态变化').constraintSize({ minHeight: 48 }).enabled(!this.busy).onClick(() => { this.undoPlanStatus(); })
+          }
+        }
+        if (this.route.startsWith('chat/')) { this.chatComposer() }
+      }.width('100%').height('100%')
+      if (!this.route && !this.keyboardVisible && this.loaded) {
+        Column({ space: 8 }) {
+          if (this.feedback) {
+            Text(this.feedback).fontSize(14).fontColor(this.feedbackFailed ? $r('app.color.status_error') : $r('app.color.text_secondary'))
+              .padding(8).backgroundColor($r('app.color.bg_surface')).borderRadius(12).maxLines(3)
+            if (this.undoPlanId && this.undoSpace === this.data.activeServer) {
+              Button('撤销状态变化').constraintSize({ minHeight: 48 }).enabled(!this.busy).onClick(() => { this.undoPlanStatus(); })
+            }
+          }
+          Row() {
+            ForEach(this.labels, (_label: string, index: number) => { Column() { this.navigation(index) }.layoutWeight(1) })
+          }.width('100%').padding(7).borderRadius(999)
+            .backgroundColor(this.solidSurfaces ? $r('app.color.bg_surface') : $r('app.color.glass_floating'))
+            .backgroundBlurStyle(this.solidSurfaces ? BlurStyle.NONE : BlurStyle.Thin)
+            .border({ width: 1, color: $r('app.color.border_subtle') })
+            .shadow({ radius: 28, offsetX: 0, offsetY: 8, color: $r('app.color.nav_shadow') })
+        }.width(this.availableWidth > 40 ? this.availableWidth - 40 : '90%').constraintSize({ maxWidth: 374 }).margin({ bottom: 18 })
       }
     }.width('100%').height('100%').backgroundColor($r('app.color.bg_page'))
       .onAreaChange((_old: Area, area: Area) => { this.availableWidth = Number(area.width); })
+      .bindSheet(this.detail.length > 0, this.detailContent(), {
+        height: this.detail === 'project-filter' || this.detail === 'new' ? SheetSize.MEDIUM : SheetSize.LARGE,
+        preferType: this.availableWidth >= 600 ? SheetType.CENTER : SheetType.BOTTOM,
+        showClose: true, backgroundColor: this.solidSurfaces ? $r('app.color.bg_elevated') : $r('app.color.glass_floating'),
+        blurStyle: this.solidSurfaces ? BlurStyle.NONE : BlurStyle.Thin,
+        onWillDismiss: (action: DismissSheetAction) => { this.detail = ''; this.showToken = false; action.dismiss(); },
+        onDisappear: () => { this.showToken = false; }
+      })
   }
 }

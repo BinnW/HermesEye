@@ -63,7 +63,8 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 |---|---|
 | [08 · 产品需求 V1.0](docs/08-product-requirements-V1.0.md) | 已确认的产品范围、场景与验收目标；作为 V1.0 范围依据 |
 | [09 · 前端设计 V1.0](docs/09-frontend-design-V1.0.md) | 页面结构、交互逻辑、授权与视觉约束 |
-| [14 · 前端设计 V2.0（预研）](docs/14-frontend-design-V2.0.md) | 卡片化全页面设计、完成框与详情弹层规则；待用户确认，不替代 V1.0 当前实现 |
+| [14 · 前端设计 V2.0](docs/14-frontend-design-V2.0.md) | 卡片化、完成框、悬浮导航与左右会话；2026-10-11 已授权在 dev 实施，业务范围沿用 V1 |
+| [21 · V2 前端实施与验证](docs/21-frontend-v2-implementation.md) | dev 分支实现映射、验证结果与未验收范围 |
 | [07 · 视觉规范 V0.2](docs/07-visual-design-V0.2.md) | V1.0 继承的色彩、字体、间距及触控设计基线 |
 | [01 · 产品需求与实现索引](docs/01-product-requirements.md) | 产品定位与当前实现映射，不替代完整需求 |
 | [02 · 前端实现说明](docs/02-design.md) | 当前页面组织与 UI 落地说明 |
@@ -114,6 +115,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 
 | 批次 | 结果与截图 |
 |---|---|
+| V2 前端 · 2026-10-11 | [15/15门禁](docs/testing/validation/2026-10-11-v2-release-ready/results.txt)、[设备12/12](docs/testing/validation/2026-10-11-v2-release-device/device-test.txt)；实施映射和边界见21，证据仅本地 |
 | V1 项目/阅读 · 2026-10-11 | [14/14 门禁](docs/testing/validation/2026-10-11-v1-project-reading-final/results.txt)、[覆盖率](docs/testing/validation/2026-10-11-v1-project-reading-final/coverage.json)、[最终设备回归](docs/testing/validation/2026-10-11-v1-project-reading-device-final/device-test.txt)；实际结果及边界见05，仅本地证据 |
 | V1.0 基线 | [自动验证摘录](docs/testing/validation/V1.0/automated-results.txt)、[Hypium 结果](docs/testing/validation/V1.0/hypium-result.txt) |
 | 键盘修复 · 2026-10-02 | [设备测试](docs/testing/validation/keyboard-2026-10-02/device-tests.txt)、[Previewer 测试](docs/testing/validation/keyboard-2026-10-02/previewer-tests.txt)、[键盘展开截图](docs/testing/validation/keyboard-2026-10-02/keyboard-open.png)、[键盘滚动截图](docs/testing/validation/keyboard-2026-10-02/keyboard-scroll.png) |
@@ -164,3 +166,8 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 - 本地架构验证：[最终结果](docs/testing/validation/2026-10-07-architecture-v1-verified/results.txt)、[摘要](docs/testing/validation/2026-10-07-architecture-v1-verified/summary.json)、[环境](docs/testing/validation/2026-10-07-architecture-v1-verified/doctor.json)。迭代：[首次诊断](docs/testing/validation/2026-10-07-architecture-v1/results.txt)、[首轮通过](docs/testing/validation/2026-10-07-architecture-v1-final/results.txt)、[存储保护回归](docs/testing/validation/2026-10-07-architecture-v1-complete/results.txt)。设备安装：[超时重试](docs/testing/validation/2026-10-07-architecture-v1-device/install-retry.txt)、[传输诊断](docs/testing/validation/2026-10-07-architecture-v1-device/transport-diagnostic.txt)、[分步安装](docs/testing/validation/2026-10-07-architecture-v1-device/manual-install.txt)。
 - 真实 Hermes 本机联调 · 2026-10-07：[脱敏摘要](docs/testing/validation/2026-10-07-hermes-live/results.txt)、[结构化结果](docs/testing/validation/2026-10-07-hermes-live/results.json)。覆盖真实原生会话与业务账本恢复，不代表手机网络、上游重启或工具执行已验收。
 - HAP部署恢复 · 2026-10-07：[重连](docs/testing/validation/2026-10-07-deploy-recovery/reconnect.txt)、[文件传输](docs/testing/validation/2026-10-07-deploy-recovery/transport-restored.txt)、[安装](docs/testing/validation/2026-10-07-deploy-recovery/install.txt)、[启动](docs/testing/validation/2026-10-07-deploy-recovery/launch.txt)、[设备回归6/6](docs/testing/validation/2026-10-07-deploy-recovery/device-test.txt)。问题9已恢复，底层单一根因未确定。
+
+
+### 当前分支实施范围 · 2026-10-11
+
+用户已授权 `dev` 实施V2前端；界面以14及“前端设计&交互逻辑设计”会话为依据，沿用08与模块规格的业务、安全和数据规则。旧记录中的“仅设计/暂不实现V2”为历史状态。当前验证与限制见21；模拟点击20组，设备12项，证据仍仅本地保留。

@@ -65,3 +65,10 @@ ReadingPanel 连接独立业务服务，校验身份并原子缓存副本。去�
 组件覆盖率分母来自"VM 加载切片偏移 ↔ 整文件 source map"，`build()`/`@Builder`/`@Styles` 声明区不在被测范围，因此 100% 是**切片可达范围**内的 100%，不代表整文件逐行；渲染、可见性与按钮门控仍由设备用例与人工验收覆盖。真实微信读书/Hermes 来源、家庭部署、手机网络与长周期实跑仍未联调，本轮全部为注入实现。
 
 证据：[15/15 结果](../testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](../testing/validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](../testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](../testing/validation/2026-10-11-reading-tests-device/device-test.txt)（目录仅本地保留）。
+
+
+### 2026-10-11 · V2 卡片与单层详情
+
+用户授权dev实现V2。ReadingPanel拆分概览、设置、书籍、逐条疑问详情；引用保留全文，回答来自已有操作结果。周期/授权/收集/查询逻辑保持V1生产规则，未增加外部采集能力。旧的无来源示例指标不进入产品。
+
+Node仍验证身份隔离、授权、缓存失败及不确定回执；设备仅验证未连接时隐藏策略控件及首页入口，不代表真实微信读书采集或阅读回答已验收。实际结果见 [21](../21-frontend-v2-implementation.md)。

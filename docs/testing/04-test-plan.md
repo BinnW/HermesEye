@@ -398,3 +398,17 @@
 - 不可达登记只有 `backend/server.py` 的进程入口；其余文件无豁免。
 
 证据：[15/15 阶段结果](validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](validation/2026-10-11-reading-tests-device/device-test.txt)（目录仅本地保留）。
+
+
+## 2026-10-11 · V2 回归补充
+
+|用例|生产方法断言|
+|---|---|
+|V2-01|独立完成框，勾选/取消、保存失败复位、只读和日历禁止完成|
+|V2-02|撤销恢复原状态；对象已变更、删除、空间变化及保存失败保护|
+|V2-03|弹层返回、按需求/服务器隔离上下文与草稿、项目分区恢复|
+|V2-04|消息代码块、表格、粗体、显式安全链接及原样HTML文字|
+
+`node scripts/test-ui-flows.cjs`现20组。服务新增外链scheme/凭据/失败脱敏；Workspace覆盖旧文件和实色偏好校验。设备12项改用V2控件：日期、工具弹层、检索/筛选、折叠表单、隐藏导航、阅读入口和键盘。截图写应用沙箱cacheDir，经hdc导出；不可写/data/local/tmp。完整保存链路由生产规则测试覆盖，设备只读用例不冒充真实端到端验收。
+
+待专项：大字号、旋转、读屏、深色原生像素对照、长历史性能、真实后端会话、透明度平台自动降级。

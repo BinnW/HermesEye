@@ -10,6 +10,9 @@ export struct ReadingPanel {
   serverId: string = '';
   workspaceId: string = '';
   cache: (snapshot: ReadingSnapshot, identity: BusinessIdentity, spaceKey: string) => Promise<boolean> = async () => false;
+  @State view: string = '';
+  @State viewBook: string = '';
+  @State viewQuestion: string = '';
   @State root: string = '';
   @State token: string = '';
   @State allowHttp: boolean = false;
@@ -131,22 +134,11 @@ export struct ReadingPanel {
       }, (cycle: ReadingCycle) => cycle.id)
       if (book.organized) { this.text($r('app.string.reading_organized')); this.text(book.organized) }
       ForEach(book.questions.slice(0, this.questionLimit), (question: ReadingQuestion) => {
-        this.text($r('app.string.reading_user_question')); this.text(question.text)
-        this.text(question.sourceEntry.text)
-        ForEach(question.interactions, (operation: BusinessOperation) => {
-          this.text('状态：' + operation.state)
-          if (operation.state === 'completed') { this.text(operation.result.message || '') }
-          this.action($r('app.string.reading_query'), 'reading-query-' + operation.id, () => {
-            this.act(async (client: BusinessClient) => { await client.query(operation.id); });
-          })
-        }, (operation: BusinessOperation) => operation.id)
-        this.action($r('app.string.reading_continue'), 'reading-continue-' + question.id, () => {
-          this.act(async (client: BusinessClient) => {
-            if (!this.questionText.trim()) { throw new Error('先填写本轮问题'); }
-            await client.readingAnswer({ questionId: question.id, operationId: newId(), input: this.questionText.trim() });
-            this.questionText = '';
-          });
-        })
+        Column({ space: 8 }) {
+          Text(question.text).fontSize(16).lineHeight(24).maxLines(2).fontColor($r('app.color.text_primary'))
+          Text('疑问讨论 · ' + (question.interactions.length ? question.interactions[question.interactions.length - 1].state : '尚未发送'))
+            .fontSize(14).fontColor($r('app.color.text_secondary'))
+        }.surface().onClick(() => { this.viewQuestion = question.id; })
       }, (question: ReadingQuestion) => question.id)
       if (book.questions.length > this.questionLimit) {
         this.action($r('app.string.reading_more_questions'), 'reading-more-questions-' + book.id, () => { this.questionLimit += 20; }, false)
@@ -165,26 +157,34 @@ export struct ReadingPanel {
       }
     }.alignItems(HorizontalAlign.Start).surface()
   }
-  build() {
-    Column({ space: 12 }) {
-      this.text($r('app.string.reading_v1_intro'))
-      if (this.message) { this.text(this.message) }
-      if (!this.connected) {
-        this.field($r('app.string.reading_root'), 'reading-root', this.root, (value: string) => { this.root = value; })
-        this.field($r('app.string.reading_token'), 'reading-token', this.token, (value: string) => { this.token = value; }, true)
-        Row({ space: 8 }) {
-          Toggle({ type: ToggleType.Switch, isOn: this.allowHttp }).onChange((value: boolean) => { this.allowHttp = value; })
-          this.text($r('app.string.reading_http'))
-        }
-        this.action($r('app.string.reading_connect'), 'reading-connect', () => { this.connect(); }, false)
-      }
-      ForEach(this.collections, (collection: ReadingCollection) => {
-        this.text('采集批次：' + collection.state + (collection.error ? ' · ' + collection.error : ''))
-      }, (collection: ReadingCollection) => collection.id)
-      if (!this.sourceConfigured) { this.text($r('app.string.reading_source_missing')) }
-      if (!this.books.length) { this.text($r('app.string.reading_empty')) }
-      ForEach(this.books, (book: ReadingBook) => { this.book(book) }, (book: ReadingBook) => book.id)
-      if (this.connected) {
+  @Builder
+  questionDetails(question: ReadingQuestion) {
+        this.text($r('app.string.reading_user_question')); this.text(question.text)
+        this.text(question.sourceEntry.text)
+        ForEach(question.interactions, (operation: BusinessOperation) => {
+          this.text('状态：' + operation.state)
+          if (operation.state === 'completed') { this.text(operation.result.message || '') }
+          this.action($r('app.string.reading_query'), 'reading-query-' + operation.id, () => {
+            this.act(async (client: BusinessClient) => { await client.query(operation.id); });
+          })
+        }, (operation: BusinessOperation) => operation.id)
+        this.action($r('app.string.reading_continue'), 'reading-continue-' + question.id, () => {
+          this.act(async (client: BusinessClient) => {
+            if (!this.questionText.trim()) { throw new Error('先填写本轮问题'); }
+            await client.readingAnswer({ questionId: question.id, operationId: newId(), input: this.questionText.trim() });
+            this.questionText = '';
+          });
+        })
+    this.field($r('app.string.reading_input'), 'reading-question-input', this.questionText, (value: string) => { this.questionText = value; })
+  }
+  @Builder
+  sheet() {
+    Scroll() {
+      Column({ space: 12 }) {
+        this.action(this.viewQuestion ? '返回书籍详情' : '关闭 · 保留当前输入', 'reading-close', () => {
+          if (this.viewQuestion) { this.viewQuestion = ''; } else { this.view = ''; }
+        }, false)
+        if (this.view === 'settings' && this.connected) {
         this.text($r('app.string.reading_policy'))
         this.field($r('app.string.reading_scope'), 'reading-scope', this.bookIds, (value: string) => { this.bookIds = value; })
         this.field($r('app.string.reading_interval'), 'reading-interval', this.interval, (value: string) => { this.interval = value; })
@@ -197,10 +197,55 @@ export struct ReadingPanel {
         this.action($r('app.string.reading_save_policy'), 'reading-save-policy', () => { this.act(async (c: BusinessClient) => { await this.savePolicy(c); }); })
         this.action($r('app.string.reading_collect'), 'reading-collect', () => { this.act(async (c: BusinessClient) => { await this.collect(c); }); })
         this.action($r('app.string.reading_refresh'), 'reading-refresh', () => { this.act(async () => {}); })
+        } else if (this.view === 'book') {
+          ForEach(this.books.filter((book: ReadingBook) => book.id === this.viewBook), (book: ReadingBook) => {
+            if (this.viewQuestion) {
+              ForEach(book.questions.filter((question: ReadingQuestion) => question.id === this.viewQuestion), (question: ReadingQuestion) => { this.questionDetails(question) }, (question: ReadingQuestion) => question.id)
+            } else {
+              this.book(book)
+              if (this.connected && this.selectedBook === book.id && this.selectedEntry) {
         this.field($r('app.string.reading_quote'), 'reading-quote', this.quote, (value: string) => { this.quote = value; })
         this.field($r('app.string.reading_input'), 'reading-question-input', this.questionText, (value: string) => { this.questionText = value; })
         this.action($r('app.string.reading_ask'), 'reading-ask', () => { this.act(async (c: BusinessClient) => { await this.ask(c); }); })
+              }
+            }
+          }, (book: ReadingBook) => book.id)
+        }
+      }.padding(20).width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').height('100%')
+  }
+  build() {
+    Column({ space: 12 }) {
+      if (this.message) { this.text(this.message) }
+      if (!this.connected) {
+        Column({ space: 12 }) {
+          this.field($r('app.string.reading_root'), 'reading-root', this.root, (value: string) => { this.root = value; })
+          this.field($r('app.string.reading_token'), 'reading-token', this.token, (value: string) => { this.token = value; }, true)
+          Row({ space: 8 }) {
+            Toggle({ type: ToggleType.Switch, isOn: this.allowHttp }).onChange((value: boolean) => { this.allowHttp = value; })
+            this.text($r('app.string.reading_http'))
+          }
+          this.action($r('app.string.reading_connect'), 'reading-connect', () => { this.connect(); }, false)
+        }.surface()
+      } else {
+        this.action('整理设置与操作恢复 ›', 'reading-settings', () => { this.view = 'settings'; })
       }
+      ForEach(this.collections.filter((collection: ReadingCollection) => collection.state !== 'collected'), (collection: ReadingCollection) => {
+        this.text('采集批次：' + collection.state + (collection.error ? ' · ' + collection.error : ''))
+      }, (collection: ReadingCollection) => collection.id)
+      if (!this.sourceConfigured) { this.text($r('app.string.reading_source_missing')) }
+      if (!this.books.length) { this.text($r('app.string.reading_empty')) }
+      ForEach(this.books, (book: ReadingBook) => {
+        Column({ space: 8 }) {
+          this.text(book.title)
+          this.text(book.progress === null ? $r('app.string.reading_unknown') : String(book.progress) + '%')
+          this.text(book.source + ' · ' + new Date(book.updatedAt * 1000).toLocaleString())
+          this.text(book.questions.length ? '疑问讨论 · 点击查看实际结果 ›' : '尚无疑问讨论 · 查看来源 ›')
+        }.surface().onClick(() => { this.viewBook = book.id; this.viewQuestion = ''; this.view = 'book'; })
+          .accessibilityText(book.title + '，查看阅读进度、来源与疑问')
+      }, (book: ReadingBook) => book.id)
     }.width('100%').alignItems(HorizontalAlign.Start)
+      .bindSheet(this.view.length > 0, this.sheet(), { height: SheetSize.LARGE, showClose: true,
+        backgroundColor: $r('app.color.bg_elevated'), onWillDismiss: (action: DismissSheetAction) => { this.view = ''; this.viewQuestion = ''; action.dismiss(); } })
   }
 }
