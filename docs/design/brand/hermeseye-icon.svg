@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>HermesEye · 感知与理解</title>
+  <desc>葱青背景，米白眼睛轮廓，中心以负形 H 表达 Hermes 个人助手。</desc>
+  <defs>
+    <mask id="iris" maskUnits="userSpaceOnUse" x="396" y="396" width="232" height="232">
+      <rect x="396" y="396" width="232" height="232" fill="white"/>
+      <path d="M464 454V570M560 454V570M464 512H560" fill="none" stroke="black" stroke-width="28" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <rect id="background" width="1024" height="1024" fill="#34785A"/>
+  <g id="foreground" fill="none" stroke="#F5F2EA" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M216 512C300 390 388 342 512 342C636 342 724 390 808 512C724 634 636 682 512 682C388 682 300 634 216 512Z"/>
+    <circle cx="512" cy="512" r="104" fill="#F5F2EA" stroke="none" mask="url(#iris)"/>
+  </g>
+</svg>

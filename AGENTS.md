@@ -106,6 +106,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 | [项目毛玻璃列表](docs/design/V2.0/projects-glass-list.png)、[详情](docs/design/V2.0/projects-glass-detail.png)、[深色](docs/design/V2.0/projects-glass-dark.png) | 浏览器设计预览，不是设备验收证据 |
 | [V2.0 极简左右会话](docs/design/V2.0/conversations.html) | 全需求会话布局、上下文及异常状态设计；浅色/深色浏览器截图尚未提供 |
 | [V2.0 全页面卡片交互稿](docs/design/V2.0/index.html) | 24 个页面场景、详情与编辑卡片；纯设计示例 |
+| [应用图标设计与资源](docs/design/brand/README.md) | 眼睛＋负形H、葱青/米白配色、SVG源稿、分层PNG及启动图导出 |
 | [V2.0 事项详情预览图](docs/design/V2.0/task-detail.png) | 浏览器设计截图，不是设备验收证据 |
 | [V2.0 悬浮胶囊导航预览图](docs/design/V2.0/floating-navigation.png) | 四入口保持不变的悬浮底栏视觉评审；不是设备验收证据 |
 
@@ -130,6 +131,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 | 模拟点击设备验收 · 2026-10-07 | [设备 8/8](docs/testing/validation/2026-10-07-click-flows-device/device-test.txt)（模拟器 API 26，含 U08/U09）、[问题11诊断留档](docs/testing/validation/2026-10-07-click-flows-diag3/device-test.txt) |
 | 测试文档归集 · 2026-10-07 | [归集后 13/13 阶段结果](docs/testing/validation/2026-10-07-docs-restructure/results.txt)（证据改落 `docs/testing/validation/`，链接与导航审计通过） |
 | 项目模块用例补充 · 2026-10-09 | [14/14 阶段结果](docs/testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率](docs/testing/validation/2026-10-09-project-module-tests/coverage.json)（core 100%/100%）、[设备 10/10](docs/testing/validation/2026-10-09-project-module-device/device-test.txt)（证据目录仅本地保留，不提交） |
+| V2 联调与外部能力 · 2026-10-11 | [15/15 门禁](docs/testing/validation/2026-10-11-v2-baseline/results.txt)、[设备 12/12](docs/testing/validation/2026-10-11-v2-device-final/device-test.txt)、[日历读取 2 条日程](docs/testing/validation/2026-10-11-calendar-probe/device-test.txt)、[真实 Hermes 往返通过](docs/testing/validation/2026-10-11-hermes-live-v2/)（运动健康未接入；仅本地保留） |
 | 阅读/业务用例补充 · 2026-10-11 | [15/15 阶段结果](docs/testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](docs/testing/validation/2026-10-11-reading-tests/coverage.json)（core/组件 100%，services 99.6%/99.3%）、[后端覆盖 100%](docs/testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](docs/testing/validation/2026-10-11-reading-tests-device/device-test.txt)（仅本地保留） |
 
 问题8追加验证（2026-10-06）：[最终零告警结果](docs/testing/validation/2026-10-06-issue8-final/results.txt)、[摘要](docs/testing/validation/2026-10-06-issue8-final/summary.json)、[设备回归](docs/testing/validation/2026-10-06-issue8-device/device-test.txt)。迭代留档：[先行逻辑回归](docs/testing/validation/2026-10-06-issue8-logic/results.txt)、[首次编译诊断](docs/testing/validation/2026-10-06-issue8/results.txt)。实际覆盖及未测范围见 05、10。

@@ -347,3 +347,35 @@ bash scripts/test-deveco.sh
 用户已授权新建dev实施V2；完成胶囊导航、事项完成与详情、项目四分区、阅读层级、分组连接和左右会话固定输入。同步14、21与模块规格/实施记录，V1业务与安全边界继续有效。
 
 最终Harness `v2-release-ready` 15/15通过，主包/测试包/本地Hypium均零ArkTS告警；生产方法模拟点击20组、本地Hypium10项。core行/块100%/100%，services行/块99.6%/99.3%，后端77项通过。API26模拟器安装成功，最终 `v2-release-device` 12/12通过（Failure 0 / Error 0）；阅读专项另2/2通过，已查看原生项目列表与首页底部截图。原生快速切换弹层与业务返回jscrash的迭代修复见问题17。设备回归为只读入口及键盘装配验证，不能代替真实服务、权限或完整生命周期的验收。验证证据只保留本地，不上传GitHub。
+
+## 2026-10-11 · V2 单元/交互复核 + 真实联调与外部能力尝试
+
+在 V2 前端已合入（commit 013968f）的基础上，按要求复核单元测试与交互路径，并尝试真实 Hermes、日历与华为运动健康。
+
+- **单元测试与交互路径**：已满足且复测通过——`verify.sh --deny-arkts-warnings` 15/15；`core` 行/块 100%/100%，`components` 切片可达范围 100%/100%，`services` 99.6%/99.3%，`backend` 5 模块行覆盖 100%；模拟点击 20 组（F01–F16 + V2-01~04）；设备 12/12；三处编译 0 条 ArkTS 告警，规范门禁 0 error / 13 warning。
+- **日历（真实读取成功）**：在 API 26 模拟器走真实交互路径（今日 → 每日计划 → 工具与来源 → 手机日历 → 授权并刷新），`readCalendarEntries` 返回 **「2026-10-11 · 2 条日程」**，无需权限弹窗（模拟器默认授予）。这填补了此前「日历/提醒授权未验收」中的日历读取一项；证据 [calendar-probe](testing/validation/2026-10-11-calendar-probe/device-test.txt)。
+- **华为运动健康（未接入，已核实）**：`services/IntegrationCapabilities.ets` 中 `health` 状态为「尚未接入」；当前 DevEco SDK 的 `ets/api` 无 HealthKit/sport/fitness 公开接口，模拟器仅有 `com.huawei.hmos.health.core` 系统包而无应用可调用面。要「获取运动健康内容」需先具备华为运动健康开放资格、选定受支持数据项并申请独立授权，再新增一个平台适配器——这是新功能而非可立即联调的测试项。
+- **真实 Hermes（待凭据）**：探测到本地 Hermes `127.0.0.1:8642` 可达（`/v1/capabilities` 返回 401，需鉴权）；业务服务 `127.0.0.1:8787` 未在运行，且当前 shell 无 `HERMES_TOKEN`/`HERMES_EYE_TOKEN`。按安全约定，令牌不得进入聊天或文件；真实往返需先以环境变量注入凭据后启动业务服务。
+
+未验证：真机签名、手机网络到 Hermes 的连通、阅读外部采集、提醒/Vault 授权、运动健康数据读取；深色像素、大字号、320vp、读屏、旋转与长历史性能。
+
+证据：[15/15 门禁](testing/validation/2026-10-11-v2-baseline/results.txt)、[设备 12/12](testing/validation/2026-10-11-v2-device-final/device-test.txt)、[日历探测](testing/validation/2026-10-11-calendar-probe/device-test.txt)（证据目录仅本地保留）。
+
+## 2026-10-11 补充 · 真实 Hermes 往返联调成功
+
+在上一轮「待凭据」之后，注入真实上游令牌并复跑联调脚本，业务服务(8787) → hermes 适配器 → 真实 Hermes(127.0.0.1:8642) 全程打通：
+
+- `GET /eye/v1/capabilities`：`sessions=true`（上游已配置），返回稳定 serverId/workspaceId。
+- `POST /eye/v1/operations`（chat）：意图先落账本，再经 `/api/sessions/<sid>/chat` 请求上游，**回执 `state=completed`，回复内容「联调正常」**，`sessionId` 正常回绑。
+- 全程令牌只经进程环境注入、不回显、不落日志；证据为脱敏 JSON（无令牌、无表头）。
+
+真实往返已覆盖「鉴权 → 原生会话（首轮建会话 + 发消息）→ 回执落账本」链路；仍未覆盖：手机网络到本机服务的连通、上游重启、runs/events/工具执行、阅读外部采集。联调结束后业务服务已停止；`backend/.local/.hermes-token` 仍保留（gitignored，600），可自行删除。
+
+证据：[hermes-live-v2](testing/validation/2026-10-11-hermes-live-v2/)（capabilities.json / operation.json / summary.txt）。
+
+
+## 2026-10-11 · HermesEye 应用图标
+
+按应用定位与葱青/米白配色新增“眼睛＋负形H”矢量标识，统一AppScope与entry的1024px分层前景/背景，并将入口启动图接为256px圆角版本。源稿及导出方法见 [图标设计说明](design/brand/README.md)。不新增权限或业务行为。
+
+实际验证：检查32/48/64/128px预览，前景与背景颜色对比4.72:1；两处PNG逐字节一致。`app-icon` Harness 15/15通过，主包/测试包/本地Hypium零ArkTS告警；API26模拟器安装成功并启动，进程存活。证据位于本地忽略目录 `docs/testing/validation/2026-10-11-app-icon/` 与 `2026-10-11-app-icon-device/`。未新增逻辑测试；本次不重复业务设备套件，未验收不同桌面蒙版、桌面缓存更新及真机启动图像素效果。
