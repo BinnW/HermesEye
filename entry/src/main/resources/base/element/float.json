@@ -3,6 +3,86 @@
     {
       "name": "page_text_font_size",
       "value": "50fp"
+    },
+    {
+      "name": "font_page_title",
+      "value": "24fp"
+    },
+    {
+      "name": "font_section",
+      "value": "18fp"
+    },
+    {
+      "name": "font_body",
+      "value": "16fp"
+    },
+    {
+      "name": "font_aux",
+      "value": "14fp"
+    },
+    {
+      "name": "font_small",
+      "value": "12fp"
+    },
+    {
+      "name": "radius_card",
+      "value": "16vp"
+    },
+    {
+      "name": "radius_field",
+      "value": "12vp"
+    },
+    {
+      "name": "radius_capsule",
+      "value": "999vp"
+    },
+    {
+      "name": "space_card_inner",
+      "value": "16vp"
+    },
+    {
+      "name": "space_card_gap",
+      "value": "12vp"
+    },
+    {
+      "name": "space_section_gap",
+      "value": "24vp"
+    },
+    {
+      "name": "space_tight",
+      "value": "8vp"
+    },
+    {
+      "name": "space_page_edge",
+      "value": "16vp"
+    },
+    {
+      "name": "space_capsule_inner",
+      "value": "7vp"
+    },
+    {
+      "name": "touch_min",
+      "value": "48vp"
+    },
+    {
+      "name": "control_checkbox",
+      "value": "24vp"
+    },
+    {
+      "name": "nav_icon",
+      "value": "21vp"
+    },
+    {
+      "name": "nav_item_min_height",
+      "value": "54vp"
+    },
+    {
+      "name": "nav_max_width",
+      "value": "374vp"
+    },
+    {
+      "name": "nav_bottom_margin",
+      "value": "18vp"
     }
   ]
 }

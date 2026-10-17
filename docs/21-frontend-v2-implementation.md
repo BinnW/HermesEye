@@ -51,3 +51,23 @@
 ## 2026-10-11 · 应用图标补充
 
 用户要求设计并接入应用图标。以葱青/米白制作眼睛轮廓与负形H，统一应用/入口分层图标和启动资源；设计源稿与导出说明见 [品牌资源](design/brand/README.md)。`app-icon` 门禁15/15、零ArkTS告警，模拟器安装与启动成功。未改变会话、授权或V2页面交互，桌面蒙版与真机像素效果待专项确认。
+
+## 2026-10-17 · 视觉打磨第一轮：尺寸令牌与共享组件收敛
+
+用户确认方向为「视觉打磨」，本轮只做设计令牌资源化与重复模式收敛，**不改页面布局与导航结构**（布局调整另行评审）。
+
+已实施：
+
+|区域|生产行为|
+|---|---|
+|尺寸令牌|`resources/base/element/float.json` 建立语义令牌：字阶 font_page_title/section/body/aux/small（24/18/16/14/12fp）、圆角 radius_card/field/capsule（16/12/999vp）、间距 space_card_inner/card_gap/section_gap/tight/page_edge/capsule_inner、触控 touch_min 48vp、完成框 control_checkbox 24vp 及胶囊导航四项尺寸；pages 与 components 共 226 处硬编码设计刻度字面量替换为 `$r('app.float.*')`，行高与 2–10vp 微间距保持局部字面量|
+|ObjectCard|新增 `components/ObjectCard.ets`：标题＋辅助行＋整卡详情入口的统一概览卡；替换项目卡、书籍卡、需求卡、收件箱记录卡、历史建议卡、能力来源卡与「独立需求 ›」入口共 7 处手写 `Column{}.surface().onClick()`。项目卡标题由 18fp 收敛为 16fp Medium，分隔线与「下一步」标签改为辅助行|
+|OptionPicker|新增 `components/OptionPicker.ets`：单选列表，选中行 soft 底＋brand 图文＋Medium，读屏播报「已选中」，不再仅靠「✓ 」前缀区分；收敛需求归属、移动需求、计划编辑所属项目、计划详情三态、项目状态筛选、显示模式、会话上下文引用共 7 处列表；`project-filter-*` 等设备测试 id 经 `idPrefix` 原样保留|
+|FilterTabs|新增 `components/FilterTabs.ets`：分段筛选，选中胶囊 soft 底＋brand 图文，与底栏选中语言一致；替换每日计划筛选行（原全部选项同色仅靠 ✓ 区分）|
+|一致性修复|首页「今日计划 ›」补 Medium 字重对齐分区标题；「阅读概览」改为全局 link 样式（`home-reading` id 保留）；删除无引用的 `RecordCard` 组件；`WorkspaceAction` 增加可选 `actionId`|
+
+实际验证：`bash scripts/verify.sh --deny-arkts-warnings --label v2-visual-tokens` 15/15 阶段通过，主包/测试包/本地 Hypium 零 ArkTS 告警，证据（仅本地）见 `docs/testing/validation/2026-10-17-v2-visual-tokens/`。逻辑套件 203 组全部通过；`test-ui-flows.cjs` 的 Index.ets/ProjectPanel.ets 切片标记未受影响。
+
+实现约束备忘：ArkUI `@Builder` 只接受 UI 组件语法，选项数组必须由 private 方法构造后传入组件参数，不能在 builder 内写 `const` 声明与 forEach 语句。
+
+尚未证明：本轮未做设备验收——OptionPicker/FilterTabs 的选中态像素、毛玻璃配对（新组件沿用 glass_content 与 BlurStyle.Thin）、CS-12 提示的 stateStyles+$r 模式（沿用既有 WorkspaceAction 写法）需在下一轮设备回归确认；页面布局、顶栏与返回模式保持原样，调整建议待评审后另行实施。

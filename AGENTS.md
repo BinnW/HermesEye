@@ -38,6 +38,18 @@ The normative rules live in [docs/15 · 编码规范](docs/15-coding-standard.md
 ## Testing Guidelines
 Add descriptive behavior cases to the Node assertion runners for domain or service changes, covering both success and failure paths. Name Hypium suites `*.test.ets` and register them in the corresponding `List.test.ets`. Branch-coverage floors are defined in [docs/15 §8.1](docs/15-coding-standard.md): 100% of `core/*.ts` blocks, ≥95% of `services/*.ets` lines, ≥90% of the standards gate itself; `scripts/coverage.cjs` measures them. Run the logic suites and compile relevant changes. Follow `docs/testing/04-test-plan.md` for device acceptance; mocks do not verify permissions, reminders, or real Hermes integration. Record acceptance results in `docs/05-release.md`.
 
+### 工作区测试约定（触发词「进行测试」）
+
+当用户在本仓库会话中发送「进行测试」（或含义相同的简短指令）时，一律映射为**对工作区未提交的改动进行测试**，不另行询问范围，按以下顺序执行：
+
+1. 识别未提交改动：`git status --short` 与 `git diff --stat`（排除 `docs/testing/validation/` 等 gitignored 证据与本地凭据文件）。
+2. 运行完整门禁：`bash scripts/verify.sh --deny-arkts-warnings --label workspace-test`（verify 会自动在证据目录名加日期前缀；覆盖规范、资源、覆盖率、逻辑/流程/后端套件、编译与本地 Hypium）。
+3. 按改动类型补专项：改动涉及 ArkTS 组件/页面且设备已连接（`bash scripts/doctor.sh`）时，补跑 `bash scripts/device.sh test`；涉及 `backend/*.py` 时门禁已含 unittest 与行覆盖门禁。
+4. 为新增/改动的 `core/*.ts`、`services/*.ets` 与组件交互补齐单元/流程用例，使 `core` 块覆盖 100%、`services` 行 ≥95%、gate ≥90%（`scripts/coverage.cjs` 把关）；交互路径以 `scripts/test-ui-flows.cjs` 遍历。
+5. 把结果与发现沉淀到 `docs/testing/04`、`05`、`10`、`13`（及对应模块记录），证据落在 `docs/testing/validation/`（仅本地保留、不提交）。
+
+门禁或设备失败时先修复再重跑；未通过的改动不得记为已验收。
+
 ## Commit & Pull Request Guidelines
 History currently contains one `feat:` commit. Follow that prefix style with concise imperative subjects, such as `fix: preserve records after save failure`. PRs should explain behavior changes, link relevant issues, report validation and untested device scenarios, and include screenshots for UI changes.
 
@@ -106,6 +118,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 | [项目毛玻璃列表](docs/design/V2.0/projects-glass-list.png)、[详情](docs/design/V2.0/projects-glass-detail.png)、[深色](docs/design/V2.0/projects-glass-dark.png) | 浏览器设计预览，不是设备验收证据 |
 | [V2.0 极简左右会话](docs/design/V2.0/conversations.html) | 全需求会话布局、上下文及异常状态设计；浅色/深色浏览器截图尚未提供 |
 | [V2.0 全页面卡片交互稿](docs/design/V2.0/index.html) | 24 个页面场景、详情与编辑卡片；纯设计示例 |
+| [单屏布局评审稿（今日聚焦）](docs/design/V2.0/today-one-screen.html) | 今日单屏、粘性页头、进度环＋筛选芯片、日历并入统计、弹层收纳；撤三模块与纯侧滑返回 2026-10-17 已确认，实施见 21 |
 | [应用图标设计与资源](docs/design/brand/README.md) | 眼睛＋负形H、葱青/米白配色、SVG源稿、分层PNG及启动图导出 |
 | [V2.0 事项详情预览图](docs/design/V2.0/task-detail.png) | 浏览器设计截图，不是设备验收证据 |
 | [V2.0 悬浮胶囊导航预览图](docs/design/V2.0/floating-navigation.png) | 四入口保持不变的悬浮底栏视觉评审；不是设备验收证据 |
@@ -131,6 +144,7 @@ Never commit tokens, signing material, or local configuration. Store tokens only
 | 模拟点击设备验收 · 2026-10-07 | [设备 8/8](docs/testing/validation/2026-10-07-click-flows-device/device-test.txt)（模拟器 API 26，含 U08/U09）、[问题11诊断留档](docs/testing/validation/2026-10-07-click-flows-diag3/device-test.txt) |
 | 测试文档归集 · 2026-10-07 | [归集后 13/13 阶段结果](docs/testing/validation/2026-10-07-docs-restructure/results.txt)（证据改落 `docs/testing/validation/`，链接与导航审计通过） |
 | 项目模块用例补充 · 2026-10-09 | [14/14 阶段结果](docs/testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率](docs/testing/validation/2026-10-09-project-module-tests/coverage.json)（core 100%/100%）、[设备 10/10](docs/testing/validation/2026-10-09-project-module-device/device-test.txt)（证据目录仅本地保留，不提交） |
+| 工作区未提交改动测试 · 2026-10-17 | [15/15 门禁](docs/testing/validation/2026-10-17-2026-10-17-workspace-test/results.txt)、[覆盖率](docs/testing/validation/2026-10-17-2026-10-17-workspace-test/coverage.json)（core 100%、services 99.6%、组件切片 100%；设备回归因模拟器未运行跳过；仅本地保留） |
 | V2 联调与外部能力 · 2026-10-11 | [15/15 门禁](docs/testing/validation/2026-10-11-v2-baseline/results.txt)、[设备 12/12](docs/testing/validation/2026-10-11-v2-device-final/device-test.txt)、[日历读取 2 条日程](docs/testing/validation/2026-10-11-calendar-probe/device-test.txt)、[真实 Hermes 往返通过](docs/testing/validation/2026-10-11-hermes-live-v2/)（运动健康未接入；仅本地保留） |
 | 阅读/业务用例补充 · 2026-10-11 | [15/15 阶段结果](docs/testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](docs/testing/validation/2026-10-11-reading-tests/coverage.json)（core/组件 100%，services 99.6%/99.3%）、[后端覆盖 100%](docs/testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](docs/testing/validation/2026-10-11-reading-tests-device/device-test.txt)（仅本地保留） |
 

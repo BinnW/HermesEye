@@ -72,27 +72,27 @@ export struct ProjectPanel {
   }
   @Styles
   card() {
-    .width('100%').padding(16).borderRadius(16).backgroundColor(this.solid ? $r('app.color.bg_surface') : $r('app.color.glass_content')).backgroundBlurStyle(this.solid ? BlurStyle.NONE : BlurStyle.Thin).margin({ bottom: 12 })
+    .width('100%').padding($r('app.float.space_card_inner')).borderRadius($r('app.float.radius_card')).backgroundColor(this.solid ? $r('app.color.bg_surface') : $r('app.color.glass_content')).backgroundBlurStyle(this.solid ? BlurStyle.NONE : BlurStyle.Thin).margin({ bottom: $r('app.float.space_card_gap') })
   }
   @Builder
   empty() {}
   @Builder
   caption(label: ResourceStr) {
-    Text(label).fontSize(14).lineHeight(22).fontColor($r('app.color.text_secondary')).width('100%')
+    Text(label).fontSize($r('app.float.font_aux')).lineHeight(22).fontColor($r('app.color.text_secondary')).width('100%')
   }
   @Builder
   body(label: ResourceStr) {
-    Text(label).fontSize(16).lineHeight(25).fontColor($r('app.color.text_primary')).width('100%')
+    Text(label).fontSize($r('app.float.font_body')).lineHeight(25).fontColor($r('app.color.text_primary')).width('100%')
   }
   @Builder
   heading(label: ResourceStr) {
-    Text(label).fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).margin({ top: 16, bottom: 8 })
+    Text(label).fontSize($r('app.float.font_section')).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).margin({ top: 16, bottom: 8 })
   }
   @Builder
   button(label: ResourceStr, id: string, action: () => void, primary: boolean = false, enabled: boolean = this.writable) {
     Button({ type: ButtonType.Normal }) {
-      Text(label).fontSize(16).padding(12).fontColor(primary ? $r('app.color.action_on_primary') : $r('app.color.selection_text'))
-    }.id(id).width('100%').constraintSize({ minHeight: 48 }).borderRadius(12)
+      Text(label).fontSize($r('app.float.font_body')).padding($r('app.float.space_card_gap')).fontColor(primary ? $r('app.color.action_on_primary') : $r('app.color.selection_text'))
+    }.id(id).width('100%').constraintSize({ minHeight: $r('app.float.touch_min') }).borderRadius($r('app.float.radius_field'))
       .backgroundColor(primary ? $r('app.color.action_primary') : $r('app.color.selection_bg'))
       .enabled(enabled).opacity(enabled ? 1 : 0.45).onClick(action).margin({ top: 8 })
   }
@@ -103,12 +103,12 @@ export struct ProjectPanel {
     ForEach([this.fieldRevision], (revision: number) => {
       if (long) {
         TextArea({ text: value }).id(id).constraintSize({ minHeight: 100, maxHeight: 180 }).maxLength(4000)
-          .fontSize(16).fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_page'))
+          .fontSize($r('app.float.font_body')).fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_page'))
           .border({ width: 1, color: $r('app.color.border_control'), radius: 12 }).enabled(this.writable)
           .onChange((text: string) => { change(text); this.remember(); })
       } else {
-        TextInput({ text: value }).id(id).constraintSize({ minHeight: 48 }).maxLength(200)
-          .fontSize(16).fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_page'))
+        TextInput({ text: value }).id(id).constraintSize({ minHeight: $r('app.float.touch_min') }).maxLength(200)
+          .fontSize($r('app.float.font_body')).fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_page'))
           .border({ width: 1, color: $r('app.color.border_control'), radius: 12 }).enabled(this.writable)
           .onChange((text: string) => { change(text); this.remember(); })
       }
@@ -116,7 +116,7 @@ export struct ProjectPanel {
   }
   @Builder
   editor() {
-    Column({ space: 12 }) {
+    Column({ space: $r('app.float.space_card_gap') }) {
       this.heading(this.project ? $r('app.string.project_edit') : $r('app.string.project_create'))
       this.caption($r('app.string.project_form_hint'))
       this.field($r('app.string.project_name'), 'project-name', this.draft.name, (value: string) => { this.draft.name = value; })
@@ -135,7 +135,7 @@ export struct ProjectPanel {
         () => { this.draft.managedBy = this.draft.managedBy === 'agent' ? 'manual' : 'agent'; this.remember(); })
       }
       this.caption($r('app.string.project_permission'))
-      if (this.error) { Text(this.error).fontSize(14).fontColor($r('app.color.status_error')) }
+      if (this.error) { Text(this.error).fontSize($r('app.float.font_aux')).fontColor($r('app.color.status_error')) }
       this.button($r('app.string.project_save'), 'project-save', () => { this.submit(); }, true, this.canEdit())
       if (this.project) {
         this.button($r('app.string.project_keep_draft'), 'project-close-editor', () => { this.editing = false; })
@@ -145,13 +145,13 @@ export struct ProjectPanel {
   }
   @Builder
   overview() {
-    Column({ space: 8 }) {
+    Column({ space: $r('app.float.space_tight') }) {
       this.heading($r('app.string.project_goal'))
-      Text(this.project?.goal || '').fontSize(16).lineHeight(25).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(this.project?.goal || '').fontSize($r('app.float.font_body')).lineHeight(25).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
         .fontColor($r('app.color.text_primary')).width('100%')
       this.caption('目标、完成标准与期限 ›')
     }.alignItems(HorizontalAlign.Start).card().onClick(() => { this.panel = 'goal'; })
-    Column({ space: 8 }) {
+    Column({ space: $r('app.float.space_tight') }) {
       this.heading($r('app.string.project_next'))
       this.body(this.project?.nextStep || $r('app.string.project_no_next'))
       this.caption($r('app.string.project_local'))
@@ -165,7 +165,7 @@ export struct ProjectPanel {
     this.button('阶段成果 ›', 'project-overview-milestones', () => { this.section = 'milestones'; })
     this.button('复盘记录 ›', 'project-overview-reviews', () => { this.section = 'reviews'; })
     if (this.project?.kind === 'software') {
-      Column({ space: 8 }) {
+      Column({ space: $r('app.float.space_tight') }) {
         this.heading($r('app.string.project_remote'))
         this.body($r('app.string.project_remote_hint'))
       }.alignItems(HorizontalAlign.Start).card()
@@ -173,7 +173,7 @@ export struct ProjectPanel {
   }
   @Builder
   lifecycle() {
-    Column({ space: 8 }) {
+    Column({ space: $r('app.float.space_tight') }) {
       this.heading($r('app.string.project_lifecycle'))
       this.button($r('app.string.project_edit'), 'project-edit', () => { this.panel = ''; this.editing = true; }, false, this.canEdit())
       this.button('项目持久会话与显式同步', 'project-sync', () => { this.panel = ''; this.sync(); })
@@ -208,14 +208,14 @@ export struct ProjectPanel {
   milestones() {
     if (!(this.project?.milestones || []).length) { this.caption($r('app.string.project_no_milestones')) }
     ForEach(this.project?.milestones || [], (item: ProjectMilestone) => {
-      Row({ space: 8 }) {
-        Checkbox({ name: item.id }).id('project-milestone-' + item.id).select(item.done).width(24).height(24).margin(12)
+      Row({ space: $r('app.float.space_tight') }) {
+        Checkbox({ name: item.id }).id('project-milestone-' + item.id).select(item.done).width($r('app.float.control_checkbox')).height($r('app.float.control_checkbox')).margin($r('app.float.space_card_gap'))
           .selectedColor($r('app.color.action_primary')).enabled(this.canEdit())
           .accessibilityText(item.title + (item.done ? '，取消完成' : '，标记完成')).onChange(() => { this.toggleMilestone(item); })
         Column({ space: 6 }) {
-          Text(item.title).fontSize(16).maxLines(2).fontColor($r('app.color.text_primary'))
+          Text(item.title).fontSize($r('app.float.font_body')).maxLines(2).fontColor($r('app.color.text_primary'))
           this.caption((item.dueDate || '未设定日期') + (item.done ? ' · 已完成' : ' · 未完成'))
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start).constraintSize({ minHeight: 48 })
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start).constraintSize({ minHeight: $r('app.float.touch_min') })
           .onClick(() => { this.selectedObject = item.id; this.panel = 'milestone-detail'; })
       }.card()
     }, (item: ProjectMilestone) => item.id)
@@ -224,17 +224,17 @@ export struct ProjectPanel {
   reviews() {
     if (!(this.project?.reviews || []).length) { this.caption($r('app.string.project_no_reviews')) }
     ForEach((this.project?.reviews || []).slice().reverse(), (item: ProjectReview) => {
-      Column({ space: 8 }) {
+      Column({ space: $r('app.float.space_tight') }) {
         this.caption(new Date(item.createdAt).toLocaleString())
-        Text(item.text).fontSize(16).lineHeight(25).maxLines(3).textOverflow({ overflow: TextOverflow.Ellipsis }).fontColor($r('app.color.text_primary'))
+        Text(item.text).fontSize($r('app.float.font_body')).lineHeight(25).maxLines(3).textOverflow({ overflow: TextOverflow.Ellipsis }).fontColor($r('app.color.text_primary'))
       }.alignItems(HorizontalAlign.Start).card().onClick(() => { this.selectedObject = item.id; this.panel = 'review-detail'; })
     }, (item: ProjectReview) => item.id)
   }
   @Builder
   sheet() {
     Scroll() {
-      Column({ space: 12 }) {
-        if (this.error) { Text(this.error).fontSize(14).fontColor($r('app.color.status_error')) }
+      Column({ space: $r('app.float.space_card_gap') }) {
+        if (this.error) { Text(this.error).fontSize($r('app.float.font_aux')).fontColor($r('app.color.status_error')) }
         this.button('关闭 · 保留草稿', 'project-sheet-close', () => { this.panel = ''; this.confirmation = ''; })
         if (this.panel === 'more') { this.lifecycle() }
         else if (this.panel === 'goal') {
@@ -268,26 +268,26 @@ export struct ProjectPanel {
           this.button('发起新需求 · 预览摘要', 'project-new-discussion', () => { this.panel = ''; if (this.project) { this.discuss(this.project); } }, true)
           this.caption('不会自动选择需求或发送；已有会话保留原身份与历史。')
         }
-      }.padding(24).alignItems(HorizontalAlign.Start).width('100%')
+      }.padding($r('app.float.space_section_gap')).alignItems(HorizontalAlign.Start).width('100%')
     }.height('100%').width('100%')
   }
   build() {
-    Column({ space: 8 }) {
+    Column({ space: $r('app.float.space_tight') }) {
       if (this.editing) { this.editor() }
       else if (this.project) {
-        Text(this.project.name).fontSize(24).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).width('100%')
-        Row({ space: 8 }) {
+        Text(this.project.name).fontSize($r('app.float.font_page_title')).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).width('100%')
+        Row({ space: $r('app.float.space_tight') }) {
           if (this.project.status !== 'archived') {
-            Button('＋').id('project-add-menu').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(() => { this.panel = 'add'; })
+            Button('＋').id('project-add-menu').constraintSize({ minHeight: $r('app.float.touch_min'), minWidth: $r('app.float.touch_min') }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(() => { this.panel = 'add'; })
           }
           Blank()
-          Button('···').id('project-more-menu').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).accessibilityText('项目更多操作').onClick(() => { this.panel = 'more'; })
+          Button('···').id('project-more-menu').constraintSize({ minHeight: $r('app.float.touch_min'), minWidth: $r('app.float.touch_min') }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).accessibilityText('项目更多操作').onClick(() => { this.panel = 'more'; })
         }.width('100%')
         this.caption(projectKindLabel(this.project.kind) + ' · ' + projectStatusLabel(this.project.status))
         Row({ space: 4 }) {
           ForEach(['overview', 'milestones', 'actions', 'reviews'], (section: string) => {
             Button(section === 'overview' ? '概览' : section === 'milestones' ? '阶段' : section === 'actions' ? '行动' : '复盘')
-              .id('project-tab-' + section).layoutWeight(1).constraintSize({ minHeight: 48 }).fontSize(14)
+              .id('project-tab-' + section).layoutWeight(1).constraintSize({ minHeight: $r('app.float.touch_min') }).fontSize($r('app.float.font_aux'))
               .fontColor($r('app.color.selection_text')).backgroundColor(this.section === section ? $r('app.color.selection_bg') : Color.Transparent)
               .onClick(() => { this.section = section; })
           }, (section: string) => section)

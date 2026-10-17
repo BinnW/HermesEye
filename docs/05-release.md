@@ -379,3 +379,18 @@ bash scripts/test-deveco.sh
 按应用定位与葱青/米白配色新增“眼睛＋负形H”矢量标识，统一AppScope与entry的1024px分层前景/背景，并将入口启动图接为256px圆角版本。源稿及导出方法见 [图标设计说明](design/brand/README.md)。不新增权限或业务行为。
 
 实际验证：检查32/48/64/128px预览，前景与背景颜色对比4.72:1；两处PNG逐字节一致。`app-icon` Harness 15/15通过，主包/测试包/本地Hypium零ArkTS告警；API26模拟器安装成功并启动，进程存活。证据位于本地忽略目录 `docs/testing/validation/2026-10-11-app-icon/` 与 `2026-10-11-app-icon-device/`。未新增逻辑测试；本次不重复业务设备套件，未验收不同桌面蒙版、桌面缓存更新及真机启动图像素效果。
+
+## 2026-10-17 · 工作区未提交改动测试（触发词「进行测试」）
+
+对 `main` 分支上未提交的改动做了完整测试。改动范围：ArkUI 组件重构（新增 `FilterTabs`/`ObjectCard`/`OptionPicker`，重构各 Panel、`WorkspaceComponents`/`WorkspaceNavigation`、`Index.ets` +297 行）、新增 `float.json`（+80 行）与 `build-profile.json5` 调整。
+
+- **门禁**：`bash scripts/verify.sh --deny-arkts-warnings` → **15/15 通过**；hap-default/hap-ohostest/hypium-local 均 0 条 ArkTS 告警。
+- **覆盖率**：`core` 行/块 625/625（100%/100%）、`services` 99.6%/99.3%、`components` 切片范围 227/227（100%/100%）、gate 96.5%/92.9%，**0 项不达标**。
+- **资源**：`float.json` 与全部 `$r('app.float.*')`/`$r('app.color.*')` 引用通过完整性校验（524 条断言）。
+- **逻辑/流程**：领域 23、服务 46、工作区 112、业务 31、流程 20、后端 77 全通过；本地 Hypium 10 通过。
+- **新增组件**：`FilterTabs`/`ObjectCard`/`OptionPicker` 为纯展示组件（仅 `build()`，无逻辑方法），不在 VM 切片覆盖范围内，其渲染与点击由设备/Previewer 验证；`OptionPicker` 的 id 生成 `idPrefix + key` 保持了 `project-filter-active`、`plan-status-*` 等既有设备用例 id 契约。
+- **新增选项映射方法**：`projectOptions`/`contextSourceOptions`/`planFilterTabs`/`planStatusOptions`/`appearanceOptions`/`projectFilterOptions` 为纯数据映射，键名稳定；由设备用例把关。
+
+**设备回归（跳过）**：模拟器未运行（`hdc list targets` 为空），冷启动被文件沙箱拦截（`hmos_make_ext4fs_from_dir: open: Operation not permitted`，模拟器需写 `~/.Huawei/` 而沙箱仅允许工作区）。ArkTS 组件运行期行为本轮未在设备上复验，需在模拟器启动后补 `bash scripts/device.sh test`。
+
+证据：[门禁](testing/validation/2026-10-17-2026-10-17-workspace-test/results.txt)、[覆盖率](testing/validation/2026-10-17-2026-10-17-workspace-test/coverage.json)（仅本地保留）。

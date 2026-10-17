@@ -45,20 +45,20 @@ export struct MessageContent {
   @Prop content: string = '';
   openLink: (url: string) => void = () => {};
   build() {
-    Column({ space: 12 }) {
+    Column({ space: $r('app.float.space_card_gap') }) {
       ForEach(messageBlocks(this.content), (block: MessageBlock, index: number) => {
         if (block.kind === 'code') {
           Scroll() {
-            Text(block.text).fontFamily('monospace').fontSize(14).lineHeight(22).fontColor($r('app.color.text_primary'))
-              .copyOption(CopyOptions.InApp).padding(12)
+            Text(block.text).fontFamily('monospace').fontSize($r('app.float.font_aux')).lineHeight(22).fontColor($r('app.color.text_primary'))
+              .copyOption(CopyOptions.InApp).padding($r('app.float.space_card_gap'))
           }.scrollable(ScrollDirection.Horizontal).width('100%').backgroundColor($r('app.color.bg_page')).borderRadius(8)
         } else if (block.kind === 'table') {
           Scroll() {
             Column({ space: 4 }) {
               ForEach(block.rows, (row: string[], rowIndex: number) => {
-                Row({ space: 8 }) {
+                Row({ space: $r('app.float.space_tight') }) {
                   ForEach(row, (cell: string, column: number) => {
-                    Text(cell).fontSize(14).lineHeight(22).fontColor($r('app.color.text_primary'))
+                    Text(cell).fontSize($r('app.float.font_aux')).lineHeight(22).fontColor($r('app.color.text_primary'))
                       .fontWeight(rowIndex === 0 ? FontWeight.Medium : FontWeight.Normal)
                       .width(140).padding(8).copyOption(CopyOptions.InApp)
                       .accessibilityText((block.rows[0][column] || '列') + '：' + cell)
@@ -75,7 +75,7 @@ export struct MessageContent {
                 .decoration({ type: span.url ? TextDecorationType.Underline : TextDecorationType.None })
                 .onClick(() => { if (span.url) { this.openLink(span.url); } })
             }, (_span: MessageSpan, spanIndex: number) => String(spanIndex))
-          }.fontSize(16).lineHeight(25).copyOption(CopyOptions.InApp).width('100%')
+          }.fontSize($r('app.float.font_body')).lineHeight(25).copyOption(CopyOptions.InApp).width('100%')
         }
       }, (_block: MessageBlock, index: number) => String(index))
     }.width('100%').alignItems(HorizontalAlign.Start)

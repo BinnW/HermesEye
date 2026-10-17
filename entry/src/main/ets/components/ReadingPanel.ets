@@ -98,23 +98,23 @@ export struct ReadingPanel {
   }
   @Styles
   surface() {
-    .width('100%').padding(16).backgroundColor($r('app.color.bg_surface')).borderRadius(12).margin({ bottom: 12 })
+    .width('100%').padding($r('app.float.space_card_inner')).backgroundColor($r('app.color.bg_surface')).borderRadius($r('app.float.radius_field')).margin({ bottom: $r('app.float.space_card_gap') })
   }
   @Builder
   text(value: ResourceStr) {
-    Text(value).fontSize(16).lineHeight(24).fontColor($r('app.color.text_primary')).width('100%').copyOption(CopyOptions.InApp)
+    Text(value).fontSize($r('app.float.font_body')).lineHeight(24).fontColor($r('app.color.text_primary')).width('100%').copyOption(CopyOptions.InApp)
   }
   @Builder
   action(label: ResourceStr, id: string, callback: () => void, online: boolean = true) {
-    Button({ type: ButtonType.Normal }) { Text(label).padding(12).fontColor($r('app.color.selection_text')) }
-      .id(id).width('100%').constraintSize({ minHeight: 48 }).backgroundColor($r('app.color.selection_bg'))
+    Button({ type: ButtonType.Normal }) { Text(label).padding($r('app.float.space_card_gap')).fontColor($r('app.color.selection_text')) }
+      .id(id).width('100%').constraintSize({ minHeight: $r('app.float.touch_min') }).backgroundColor($r('app.color.selection_bg'))
       .enabled(!this.busy && (!online || this.connected)).onClick(callback)
   }
   @Builder
   field(label: ResourceStr, id: string, value: string, change: (value: string) => void, secret: boolean = false) {
     this.text(label)
     TextInput({ text: value }).id(id).type(secret ? InputType.Password : InputType.Normal)
-      .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_page')).constraintSize({ minHeight: 48 })
+      .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_page')).constraintSize({ minHeight: $r('app.float.touch_min') })
       .enabled(!this.busy).onChange(change)
   }
   @Builder
@@ -134,10 +134,10 @@ export struct ReadingPanel {
       }, (cycle: ReadingCycle) => cycle.id)
       if (book.organized) { this.text($r('app.string.reading_organized')); this.text(book.organized) }
       ForEach(book.questions.slice(0, this.questionLimit), (question: ReadingQuestion) => {
-        Column({ space: 8 }) {
-          Text(question.text).fontSize(16).lineHeight(24).maxLines(2).fontColor($r('app.color.text_primary'))
+        Column({ space: $r('app.float.space_tight') }) {
+          Text(question.text).fontSize($r('app.float.font_body')).lineHeight(24).maxLines(2).fontColor($r('app.color.text_primary'))
           Text('疑问讨论 · ' + (question.interactions.length ? question.interactions[question.interactions.length - 1].state : '尚未发送'))
-            .fontSize(14).fontColor($r('app.color.text_secondary'))
+            .fontSize($r('app.float.font_aux')).fontColor($r('app.color.text_secondary'))
         }.surface().onClick(() => { this.viewQuestion = question.id; })
       }, (question: ReadingQuestion) => question.id)
       if (book.questions.length > this.questionLimit) {
@@ -180,7 +180,7 @@ export struct ReadingPanel {
   @Builder
   sheet() {
     Scroll() {
-      Column({ space: 12 }) {
+      Column({ space: $r('app.float.space_card_gap') }) {
         this.action(this.viewQuestion ? '返回书籍详情' : '关闭 · 保留当前输入', 'reading-close', () => {
           if (this.viewQuestion) { this.viewQuestion = ''; } else { this.view = ''; }
         }, false)
@@ -215,13 +215,13 @@ export struct ReadingPanel {
     }.width('100%').height('100%')
   }
   build() {
-    Column({ space: 12 }) {
+    Column({ space: $r('app.float.space_card_gap') }) {
       if (this.message) { this.text(this.message) }
       if (!this.connected) {
-        Column({ space: 12 }) {
+        Column({ space: $r('app.float.space_card_gap') }) {
           this.field($r('app.string.reading_root'), 'reading-root', this.root, (value: string) => { this.root = value; })
           this.field($r('app.string.reading_token'), 'reading-token', this.token, (value: string) => { this.token = value; }, true)
-          Row({ space: 8 }) {
+          Row({ space: $r('app.float.space_tight') }) {
             Toggle({ type: ToggleType.Switch, isOn: this.allowHttp }).onChange((value: boolean) => { this.allowHttp = value; })
             this.text($r('app.string.reading_http'))
           }
@@ -236,7 +236,7 @@ export struct ReadingPanel {
       if (!this.sourceConfigured) { this.text($r('app.string.reading_source_missing')) }
       if (!this.books.length) { this.text($r('app.string.reading_empty')) }
       ForEach(this.books, (book: ReadingBook) => {
-        Column({ space: 8 }) {
+        Column({ space: $r('app.float.space_tight') }) {
           this.text(book.title)
           this.text(book.progress === null ? $r('app.string.reading_unknown') : String(book.progress) + '%')
           this.text(book.source + ' · ' + new Date(book.updatedAt * 1000).toLocaleString())

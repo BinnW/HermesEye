@@ -98,25 +98,25 @@ export struct BusinessPanel {
   @Builder
   settings() {
     Scroll() {
-      Column({ space: 12 }) {
-        Text(this.status).fontSize(14).fontColor($r('app.color.text_secondary'))
+      Column({ space: $r('app.float.space_card_gap') }) {
+        Text(this.status).fontSize($r('app.float.font_aux')).fontColor($r('app.color.text_secondary'))
       if (!this.connected) {
         TextInput({ placeholder: '独立业务服务根地址（不含 /v1）', text: this.root }).onChange((value: string) => { this.root = value; })
         TextInput({ placeholder: '本次业务服务 Token（不保存）', text: this.token }).type(InputType.Password)
           .onChange((value: string) => { this.token = value; })
-        Row({ space: 8 }) {
+        Row({ space: $r('app.float.space_tight') }) {
           Toggle({ type: ToggleType.Switch, isOn: this.allowHttp }).onChange((value: boolean) => { this.allowHttp = value; })
-          Text('允许私网 HTTP（仅本地调试）').fontSize(14)
+          Text('允许私网 HTTP（仅本地调试）').fontSize($r('app.float.font_aux'))
         }
         Button('连接独立业务服务').enabled(!this.busy).onClick(() => { this.connect(); })
       }
       if (this.localReady) {
-        Text('空间：' + this.replica.workspaceId + ' · 游标 ' + this.replica.cursor).fontSize(14)
+        Text('空间：' + this.replica.workspaceId + ' · 游标 ' + this.replica.cursor).fontSize($r('app.float.font_aux'))
         Button('同步业务副本').enabled(!this.busy).onClick(() => { this.act(async (c: BusinessCoordinator) => { await c.synchronize(); }); })
         Button('重建已确认副本（保留待确认编辑）').enabled(!this.busy)
           .onClick(() => { this.act(async (c: BusinessCoordinator) => { await c.synchronize(true); }); })
         if (this.project) {
-          Text('项目目标、完成标准、里程碑与复盘由你确认后才上传；不会同步日历、凭据或旧会话。').fontSize(14)
+          Text('项目目标、完成标准、里程碑与复盘由你确认后才上传；不会同步日历、凭据或旧会话。').fontSize($r('app.float.font_aux'))
           Button('确认将当前项目加入待同步列表').enabled(!this.busy && this.connected)
             .onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.exportProject(c); }); })
         } else {
@@ -130,7 +130,7 @@ export struct BusinessPanel {
           }
         }, (entity: BusinessEntity) => entity.kind + '/' + entity.id + '/' + entity.revision)
         ForEach(this.replica.outbox, (item: BusinessMutation) => {
-          Text('待同步：' + (item.deleted ? '删除 ' : '') + (item.payload.title || item.id)).fontSize(14)
+          Text('待同步：' + (item.deleted ? '删除 ' : '') + (item.payload.title || item.id)).fontSize($r('app.float.font_aux'))
         }, (item: BusinessMutation) => item.mutationId)
         ForEach(this.replica.conflicts, (conflict: BusinessConflict) => {
           Text('编辑冲突：本机 ' + JSON.stringify(conflict.local.payload) + ' / 远端 ' + JSON.stringify(conflict.remote?.payload))
@@ -146,8 +146,8 @@ export struct BusinessPanel {
           TextInput({ placeholder: '稳定需求标识，例如 study-harmony', text: this.needId }).id('business-need')
             .onChange((value: string) => { this.needId = value; })
         }
-        Text('本次发送仅包含输入框中可见文本。结果未知时查询原操作，不自动重放。').fontSize(14)
-        Button('返回会话').constraintSize({ minHeight: 48 }).onClick(() => { this.showSettings = false; })
+        Text('本次发送仅包含输入框中可见文本。结果未知时查询原操作，不自动重放。').fontSize($r('app.float.font_aux'))
+        Button('返回会话').constraintSize({ minHeight: $r('app.float.touch_min') }).onClick(() => { this.showSettings = false; })
       }.width('100%').padding(20).alignItems(HorizontalAlign.Start)
         .foregroundColor($r('app.color.text_primary'))
     }.height('100%').width('100%')
@@ -155,35 +155,35 @@ export struct BusinessPanel {
   @Builder
   layout() {
     Column() {
-      Row({ space: 8 }) {
-        Button('返回').constraintSize({ minHeight: 48 }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(this.back)
-        Text(this.project ? '项目 · 持久业务会话' : '业务服务 · 本地预览').fontSize(18).layoutWeight(1).fontColor($r('app.color.text_primary'))
-        Button('···').id('business-settings').constraintSize({ minHeight: 48, minWidth: 48 })
+      Row({ space: $r('app.float.space_tight') }) {
+        Button('返回').constraintSize({ minHeight: $r('app.float.touch_min') }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(this.back)
+        Text(this.project ? '项目 · 持久业务会话' : '业务服务 · 本地预览').fontSize($r('app.float.font_section')).layoutWeight(1).fontColor($r('app.color.text_primary'))
+        Button('···').id('business-settings').constraintSize({ minHeight: $r('app.float.touch_min'), minWidth: $r('app.float.touch_min') })
           .backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).accessibilityText('连接、需求和显式同步')
           .onClick(() => { this.showSettings = true; })
-      }.padding(12).width('100%')
+      }.padding($r('app.float.space_card_gap')).width('100%')
       Scroll() {
-        Column({ space: 12 }) {
-          Text(this.status).fontSize(14).fontColor($r('app.color.text_secondary'))
+        Column({ space: $r('app.float.space_card_gap') }) {
+          Text(this.status).fontSize($r('app.float.font_aux')).fontColor($r('app.color.text_secondary'))
           if (!this.connected) {
-            Button('连接独立业务服务').constraintSize({ minHeight: 48 }).backgroundColor($r('app.color.bg_surface'))
+            Button('连接独立业务服务').constraintSize({ minHeight: $r('app.float.touch_min') }).backgroundColor($r('app.color.bg_surface'))
               .fontColor($r('app.color.action_primary')).onClick(() => { this.showSettings = true; })
           }
-          if (this.needId) { Text('需求：' + this.needId).fontSize(14).fontColor($r('app.color.text_secondary')) }
+          if (this.needId) { Text('需求：' + this.needId).fontSize($r('app.float.font_aux')).fontColor($r('app.color.text_secondary')) }
         ForEach(this.replica.operations.filter((pending: BusinessPending) => pending.intent.needId === this.needId), (pending: BusinessPending) => {
           Row() {
             Blank().width('18%')
-            Text(pending.intent.input).fontSize(16).lineHeight(25).fontColor($r('app.color.text_primary'))
-              .layoutWeight(1).padding(16).borderRadius({ topLeft: 20, topRight: 20, bottomLeft: 20, bottomRight: 6 })
+            Text(pending.intent.input).fontSize($r('app.float.font_body')).lineHeight(25).fontColor($r('app.color.text_primary'))
+              .layoutWeight(1).padding($r('app.float.space_card_inner')).borderRadius({ topLeft: 20, topRight: 20, bottomLeft: 20, bottomRight: 6 })
               .backgroundColor($r('app.color.selection_bg')).copyOption(CopyOptions.InApp)
           }.width('100%')
           Row() {
-            Column({ space: 8 }) {
-              Text('Hermes · ' + (pending.operation?.state || '结果未知，请查询')).fontSize(14).fontColor($r('app.color.text_secondary'))
+            Column({ space: $r('app.float.space_tight') }) {
+              Text('Hermes · ' + (pending.operation?.state || '结果未知，请查询')).fontSize($r('app.float.font_aux')).fontColor($r('app.color.text_secondary'))
               MessageContent({ content: pending.operation?.result.message || pending.operation?.result.output || '尚未收到可确认的回复',
                 openLink: (url: string) => { openExternalLink(this.getUIContext().getHostContext() as common.UIAbilityContext, url)
                   .catch((error: Error) => { this.status = error.message; }); } })
-            }.layoutWeight(1).padding(16).borderRadius({ topLeft: 20, topRight: 20, bottomLeft: 6, bottomRight: 20 })
+            }.layoutWeight(1).padding($r('app.float.space_card_inner')).borderRadius({ topLeft: 20, topRight: 20, bottomLeft: 6, bottomRight: 20 })
               .backgroundColor($r('app.color.bg_surface')).alignItems(HorizontalAlign.Start)
             Blank().width('12%')
           }.width('100%')
@@ -191,20 +191,20 @@ export struct BusinessPanel {
             this.act(async (c: BusinessCoordinator) => { await c.recover(pending.intent.operationId); });
           })
         }, (pending: BusinessPending) => pending.intent.operationId)
-        }.padding(16).width('100%').alignItems(HorizontalAlign.Start)
+        }.padding($r('app.float.space_card_inner')).width('100%').alignItems(HorizontalAlign.Start)
       }.layoutWeight(1).width('100%')
-      Row({ space: 8 }) {
-        Button('＋').constraintSize({ minHeight: 48, minWidth: 48 }).backgroundColor(Color.Transparent)
+      Row({ space: $r('app.float.space_tight') }) {
+        Button('＋').constraintSize({ minHeight: $r('app.float.touch_min'), minWidth: $r('app.float.touch_min') }).backgroundColor(Color.Transparent)
           .fontColor($r('app.color.action_primary')).accessibilityText('查看本次输入范围与同步设置').onClick(() => { this.showSettings = true; })
         TextArea({ placeholder: '本次发送给 Hermes 的输入', text: this.prompt }).id('business-prompt')
-          .constraintSize({ minHeight: 48, maxHeight: 150 }).layoutWeight(1).maxLength(4000)
+          .constraintSize({ minHeight: $r('app.float.touch_min'), maxHeight: 150 }).layoutWeight(1).maxLength(4000)
           .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.bg_surface'))
           .onChange((value: string) => { this.prompt = value; })
-        Button('发送').id('business-send').constraintSize({ minHeight: 48 }).width(64)
+        Button('发送').id('business-send').constraintSize({ minHeight: $r('app.float.touch_min') }).width(64)
           .backgroundColor($r('app.color.action_primary')).fontColor($r('app.color.action_on_primary'))
           .enabled(!this.busy && this.connected && !!this.needId && !!this.prompt.trim())
           .onClick(() => { this.act(async (c: BusinessCoordinator) => { await this.send(c); }); })
-      }.padding(12).width('100%').backgroundColor($r('app.color.bg_surface'))
+      }.padding($r('app.float.space_card_gap')).width('100%').backgroundColor($r('app.color.bg_surface'))
     }.width('100%').height('100%').foregroundColor($r('app.color.text_primary'))
       .bindSheet(this.showSettings, this.settings(), { height: SheetSize.LARGE, showClose: true,
         backgroundColor: $r('app.color.bg_elevated'),
