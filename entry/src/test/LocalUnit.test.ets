@@ -67,7 +67,7 @@ export default function localUnitTest() {
       expect(activeSpace(data).needs[0].messages.length).assertEqual(1);
     });
     it('committedSendRequiresRenderingTheNewSnapshot', 0, () => {
-      // Emulator regression (docs/10): the chat page kept rendering the pre-send object.
+      // Emulator regression (docs/issues/10): the chat page kept rendering the pre-send object.
       const data = newWorkspace(); const space = activeSpace(data);
       const need = createNeed(space, '', 'independent', '');
       const next = copyWorkspace(data);

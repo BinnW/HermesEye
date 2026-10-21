@@ -1,5 +1,5 @@
 {
-  // 权威规范：docs/15-coding-standard.md、docs/16-logging-standard.md。
+  // 权威规范：docs/design/15-coding-standard.md、docs/design/16-logging-standard.md。
   // 本文件只对 DevEco Studio 内的 CodeLinter 生效；无头 CLI 不可用
   // （见 docs/testing/13-harmony-harness.md 已知限制），可执行门禁是
   // `node scripts/check-standards.cjs`（verify.sh 第一阶段）。

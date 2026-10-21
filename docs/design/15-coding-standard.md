@@ -2,7 +2,7 @@
 
 建立：2026-10-07。适用范围：`entry/src/main/ets/**`（ArkTS/ArkUI）、`entry/src/test/**`、`entry/src/ohosTest/**`、`backend/**`、`scripts/**`。
 效力：**新增与修改代码必须遵守**；存量代码按第 9 节清单分批整改，其中标记为 `error` 的机检项必须一次清零。
-配套文档：[16 日志打印规范](16-logging-standard.md)、[03 架构边界](03-architecture.md)、[04 测试计划](testing/04-test-plan.md)。
+配套文档：[16 日志打印规范](16-logging-standard.md)、[03 架构边界](03-architecture.md)、[04 测试计划](../testing/04-test-plan.md)。
 
 ## 0. 约定与强制等级
 
@@ -78,7 +78,7 @@ node scripts/check-standards.cjs --json docs/testing/validation/<日期>-<标签
 - **MUST** 可交互控件提供稳定 `id`（`/^[a-z0-9-]+$/`，如 `main-navigation-2`、`input-项目名称`）；`ohosTest` 的 `UiTest` 与后续模拟点击用例靠它定位。
 - **MUST** 面向用户的文案保留中文；新增文案进 `resources/base/element/string.json`，或用 `$r('app.string.xxx')`。
 - **SHOULD** 长列表用 `LazyForEach` + `IDataSource`。
-- **SHOULD** `stateStyles` 内不要使用 `$r(...)`：历史 jscrash（`TypeError: $r is not callable`，栈顶 `WorkspaceNavigation.ets:22`）指向该模式，尚未定位根因。改动该区域必须设备验证（`CS-12`，见 [10 问题记录](testing/10-test_record.md)）。
+- **SHOULD** `stateStyles` 内不要使用 `$r(...)`：历史 jscrash（`TypeError: $r is not callable`，栈顶 `WorkspaceNavigation.ets:22`）指向该模式，尚未定位根因。改动该区域必须设备验证（`CS-12`，见 [10 问题记录](../issues/10-test_record.md)）。
 
 ## 6. 安全（MUST）
 
@@ -102,7 +102,7 @@ node scripts/check-standards.cjs --json docs/testing/validation/<日期>-<标签
 - **MUST** 改了 `core/`：在对应 Node 套件（`scripts/test-domain.cjs`、`test-workspace.cjs`、`test-business.cjs`）增加行为用例，**成功路径与失败路径都要有**。
 - **MUST** 改了 `services/`：在 `scripts/test-services.cjs` 用注入 mock 覆盖失败分支；真实 Asset Store 等只能由 `entry/src/ohosTest` 覆盖。
 - **MUST** 新增 `*.test.ets` 必须注册进同目录 `List.test.ets`（`CS-13`）；Hypium 用例必须是 `it('场景描述', 0, async () => {})` 形式（`CS-14`）；禁止 `.only(`。
-- **MUST** 交互或导航改动：补 `entry/src/ohosTest` 的模拟点击用例，并在 [10](testing/10-test_record.md)/[05](05-release.md) 记录设备结果。没有设备时只能记录"测试包编译通过"。
+- **MUST** 交互或导航改动：补 `entry/src/ohosTest` 的模拟点击用例，并在 [10](../issues/10-test_record.md)/[05](../testing/05-release.md) 记录设备结果。没有设备时只能记录"测试包编译通过"。
 - **MUST** 分支覆盖目标见 8.1；覆盖率由 `scripts/coverage.cjs` 生成并纳入 `verify.sh`。
 - **MUST** 用例命名描述行为与预期，不写"测试1"；稳定编号（N/S/W/L/U/B/C 系列）只追加不重排。
 

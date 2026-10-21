@@ -4,4 +4,4 @@
 
 自测：11 组领域规则 + 6 组注入适配器测试通过，ArkTS/资源编译与 HAP 打包通过。无真机或真实 Hermes 联调证据。
 
-SHA-256 见 `SHA256SUMS.txt`。完整能力、限制与发布门槛见 `docs/05-release.md`。请在 DevEco 中配置自己的签名并完成设备验收后再发行。
+SHA-256 见 `SHA256SUMS.txt`。完整能力、限制与发布门槛见 `docs/testing/05-release.md`。请在 DevEco 中配置自己的签名并完成设备验收后再发行。

@@ -287,11 +287,16 @@ async function main() {
     assert.equal(w.connectionUrl({ ...connection('100.64.0.1'), protocol: 'http', allowPrivateHttp: true }), 'http://100.64.0.1:443/v1');
     ['100.63.255.255', '100.128.0.1', '8.8.8.8'].forEach(host => assert.throws(() => w.connectionUrl({ ...connection(host), protocol: 'http', allowPrivateHttp: true })));
   });
-  await test('daily counts distinguish dates and explicit statuses', () => {
+  await test('daily counts distinguish dates and explicit statuses, calendar items included', () => {
     const space = w.newSpace('local');
     space.plans = ['todo', 'doing', 'done'].map((status, i) => ({ id: String(i), date: '2026-10-01', title: status, status, projectId: '' }));
     space.plans.push({ id: 'other', date: '2026-10-02', title: 'other', status: 'done', projectId: '' });
     assert.deepEqual(Array.from(w.planCounts(space, '2026-10-01')), [1, 1, 1]);
+    space.plans.push({ id: 'cal', date: '2026-10-01', title: 'Meeting', status: 'todo', projectId: '',
+      calendarSource: { key: 'k', title: 'M', start: 1, end: 2, allDay: false } });
+    assert.deepEqual(Array.from(w.planCounts(space, '2026-10-01')), [1, 1, 2], '2026-10-17 起日历事项计入事务完成统计');
+    space.plans.find(item => item.id === 'cal').status = 'done';
+    assert.deepEqual(Array.from(w.planCounts(space, '2026-10-01')), [2, 1, 1], '日历事项完成状态变化应反映到统计');
     assert.equal(w.validDate('2026-02-30'), false); assert.equal(w.validDate('2028-02-29'), true);
   });
   await test('interval record permits text-only and rejects partial, reversed or future periods', () => {
@@ -330,7 +335,7 @@ async function main() {
     assert.equal(w.activeSpace(data).plans.length, 0);
   });
   await test('a committed send lives only in the new snapshot the chat page must render', () => {
-    // Emulator regression (docs/10): the chat page went stale because it kept rendering the pre-send object.
+    // Emulator regression (docs/issues/10): the chat page went stale because it kept rendering the pre-send object.
     const data = w.newWorkspace(); const need = w.createNeed(w.activeSpace(data), '', 'independent', '');
     const next = w.copyWorkspace(data);
     const target = w.activeSpace(next).needs.find(item => item.id === need.id);
@@ -589,22 +594,6 @@ async function main() {
     assert.equal(space.plans.length, 2); assert.equal(space.plans[1].status, 'todo');
     assert.equal(space.plans[1].suggestionKey, 'plan/src'); assert.match(space.plans[1].suggestionReason, /来源计划 src/);
     assert.throws(() => w.adoptPlanSuggestion(space, '2026-10-07', 'plan/src'), /建议已采纳/);
-  });
-  await test('calendarBusyMinutes merges overlaps and ignores all-day or off-day items', () => {
-    const day = new Date('2026-10-01T00:00:00').getTime(); const minute = 60000;
-    const source = (start, end, allDay = false) => ({ key: 'k', title: 'Meeting', start, end, allDay });
-    const space = w.newSpace('local');
-    space.plans.push(
-      plan({ id: 'a', calendarSource: source(day + 10 * minute, day + 30 * minute) }),
-      plan({ id: 'b', calendarSource: source(day + 20 * minute, day + 40 * minute) }),
-      plan({ id: 'c', calendarSource: source(day + 5 * minute, day + 12 * minute) }),
-      plan({ id: 'd', calendarSource: source(day - 60 * minute, day + 45 * minute) }),
-      plan({ id: 'e', calendarSource: source(day + 50 * minute, day + 80 * minute, true) }),
-      plan({ id: 'f', date: '2026-10-02', calendarSource: source(day + 90 * minute, day + 120 * minute) }),
-      plan({ id: 'g', calendarSource: source(day - 120 * minute, day - 60 * minute) })
-    );
-    assert.equal(w.calendarBusyMinutes(space, '2026-10-01'), 45);
-    assert.equal(w.calendarBusyMinutes(space, 'bad-date'), 0);
   });
   await test('ownerExists resolves every owner kind and rejects unknown kinds', () => {
     const space = w.newSpace('local');

@@ -31,11 +31,11 @@ Token 仅在输入内存与系统 Asset Store 中存在，普通配置仅保存�
 新数据格式 version=2，保留旧文件；V0.2 全局历史迁入独立需求，旧记录与提醒完整保留在本地空间，不自动传给新服务器。当前兼容文本接口仍非流式，本机历史无旧版 100 条上限，单次发送显示“最近 40 条”；这不是服务端会话恢复方案。
 
 ## 发布门槛
-真实 Hermes 协议、Tailscale 连通性、签名安装、设备权限、Asset Store 重启恢复、强提醒及深浅色/窄屏验收、服务端重启和多端同步证据齐备后，才能宣布 V1.0 完成。当前证据见 [05 · 验收记录](05-release.md)。
+真实 Hermes 协议、Tailscale 连通性、签名安装、设备权限、Asset Store 重启恢复、强提醒及深浅色/窄屏验收、服务端重启和多端同步证据齐备后，才能宣布 V1.0 完成。当前证据见 [05 · 验收记录](../testing/05-release.md)。
 
 ## 2026-10-09 · 项目模块索引
 
-[17 项目规格](modules/17-project-spec.md)、[18 开发记录](modules/18-project-implementation.md)、[交互原型](design/projects/index.html)：个人学习/健身/效能目标的本机管理与Hermes讨论入口；远程多Agent软件构建为未来协议设计，尚未实现。
+[17 项目规格](../modules/projects/17-project-spec.md)、[18 开发记录](../modules/projects/18-project-implementation.md)、[交互原型](projects/index.html)：个人学习/健身/效能目标的本机管理与Hermes讨论入口；远程多Agent软件构建为未来协议设计，尚未实现。
 
 ## 2026-10-11 · 项目与阅读 V1 实施
 

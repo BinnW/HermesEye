@@ -1,6 +1,6 @@
 # 项目模块 · 开发与交付记录
 
-对应 [17 需求规格](17-project-spec.md) 与 [交互原型](../design/projects/index.html)。本文件记录过程和实际边界，不把规格要求当作已验收。
+对应 [17 需求规格](17-project-spec.md) 与 [交互原型](../../design/projects/index.html)。本文件记录过程和实际边界，不把规格要求当作已验收。
 
 ## 2026-10-09 · 首轮设计与实现
 
@@ -37,7 +37,7 @@
 | 浏览器视觉检查 | 未执行成功：浏览器安全策略拒绝file协议；未尝试绕过 |
 | 设备/真实Hermes/新功能端到端 | 未验证；无连接设备 |
 
-本地证据：[最终结果](../testing/validation/2026-10-09-project-module-delivery/results.txt)、[摘要](../testing/validation/2026-10-09-project-module-delivery/summary.json)。证据目录仅本地保留，不提交。
+本地证据：[最终结果](../../testing/validation/2026-10-09-project-module-delivery/results.txt)、[摘要](../../testing/validation/2026-10-09-project-module-delivery/summary.json)。证据目录仅本地保留，不提交。
 
 修正细节：组件方法避开ArkUI基类`key`；摘要明确返回并限制到输入上限，超长有截短提示；长项目名生成会话名时预留后缀长度；任务计数排除日历；里程碑/复盘保存后以局部字段revision重建输入控件，避免已清空状态仍显示旧输入（设备显示仍待核验）。首轮沙箱Previewer卡住后手动结束该次进程；初轮或编译失败轮的`hypium-result`可能读到历史文件，不作为成功证据，以最终同轮hypium-local和hypium-result共同通过为准。
 
@@ -75,9 +75,9 @@
 
 ### 发现与边界
 
-- 状态机放行规格图未定义的 `paused→completed`、`completed→paused`（`Workspace.ts:431`）；缺完成标准时抛通用文案而非项目域提示。均记入 [10 问题记录](../testing/10-test_record.md) 问题 15，**未修改生产代码**。
-- 设备层不覆盖"新建→里程碑→复盘→归档"链路：模拟器上表单中段字段的 `scrollSearch` 会阻塞超时，改由 Node F08 覆盖（取舍见 [04 测试计划](../testing/04-test-plan.md)）。
-- 证据：[14/14 结果](../testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率](../testing/validation/2026-10-09-project-module-tests/coverage.json)、[设备 10/10](../testing/validation/2026-10-09-project-module-device/device-test.txt)（目录仅本地保留）。
+- 状态机放行规格图未定义的 `paused→completed`、`completed→paused`（`Workspace.ts:431`）；缺完成标准时抛通用文案而非项目域提示。均记入 [10 问题记录](../../issues/10-test_record.md) 问题 15，**未修改生产代码**。
+- 设备层不覆盖"新建→里程碑→复盘→归档"链路：模拟器上表单中段字段的 `scrollSearch` 会阻塞超时，改由 Node F08 覆盖（取舍见 [04 测试计划](../../testing/04-test-plan.md)）。
+- 证据：[14/14 结果](../../testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率](../../testing/validation/2026-10-09-project-module-tests/coverage.json)、[设备 10/10](../../testing/validation/2026-10-09-project-module-device/device-test.txt)（目录仅本地保留）。
 
 ## 2026-10-11 · V2.0 项目卡片与毛玻璃设计评审
 
@@ -102,7 +102,7 @@
 
 补修问题 15 的未定义状态转移与缺完成标准提示，重复达成不重复追加依据；F08 改为暂停后先恢复再达成，新增核心拒绝路径。F10 驱动生产业务面板方法，检查完整项目投影、已确认修订、排除私人平台字段及稳定 Need。后端用例检查结构字段、非法日期/枚举/条目和 CAS 冲突。
 
-本轮不实现 V2 材质/导航、多 Agent 构建、自动建议采纳或远端字段自动回写。实际 Harness 与模拟器结果统一见 [05](../05-release.md) 本轮记录；真实 Hermes 项目上下文/手机业务网络与真机仍未本轮验收。
+本轮不实现 V2 材质/导航、多 Agent 构建、自动建议采纳或远端字段自动回写。实际 Harness 与模拟器结果统一见 [05](../../testing/05-release.md) 本轮记录；真实 Hermes 项目上下文/手机业务网络与真机仍未本轮验收。
 
 本轮最终 Harness 14/14、Node 生产用例220、Python37、本地 Hypium10通过；core行/块100%，services行99.6%/块99.3%，零 ArkTS 告警。最终设备结果与未验收范围见05；来源/Hermes为注入测试，不是本模块真实私人数据联调。
 
@@ -119,4 +119,4 @@
 
 在dev采用已确认项目卡片材质与布局。ProjectPanel将目标、下一步、阶段和复盘拆为四分区；章节状态按服务器与项目在进程内恢复。目标/阶段/复盘/状态确认使用单层原生弹层，行动复用完成框，Hermes入口汇总既有需求并保留新需求草稿。生命周期矩阵、达成标准、完成证据与归档校验沿用生产规则。
 
-生产方法模拟点击覆盖目标/里程碑/复盘/归档和失败保留；设备验证入口、搜索、筛选、类型选择及返回不保存，不用只读设备用例宣称全链路已验收。当前结果见 [21](../21-frontend-v2-implementation.md)。
+生产方法模拟点击覆盖目标/里程碑/复盘/归档和失败保留；设备验证入口、搜索、筛选、类型选择及返回不保存，不用只读设备用例宣称全链路已验收。当前结果见 [21](../frontend/21-frontend-v2-implementation.md)。

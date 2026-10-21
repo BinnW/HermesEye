@@ -1,7 +1,7 @@
 # HermesEye · 日志打印规范 V1.0
 
 建立：2026-10-07。适用：ArkTS 端 `hilog`（`entry/src/main/ets/**`）与 Python 端 `logging`（`backend/**`）。
-配套：[15 编码规范](15-coding-standard.md)（第 7 节引用本文件）、[04 测试计划](testing/04-test-plan.md)（日志排查路径）、`.dsh/skills/harmonyos-harness`（设备侧抓取方式）。
+配套：[15 编码规范](15-coding-standard.md)（第 7 节引用本文件）、[04 测试计划](../testing/04-test-plan.md)（日志排查路径）、`.dsh/skills/harmonyos-harness`（设备侧抓取方式）。
 机检：`node scripts/check-standards.cjs`，规则前缀 `LOG-*`（ArkTS）与 `PY-*`（Python）。
 
 ## 0. 目标与原则
@@ -14,7 +14,7 @@
 
 ## 1. 域（domain）与标签（tag）注册表（MUST）
 
-全应用只有一个域。**禁止**使用 DevEco 模板默认的 `0x0000` 与 `testTag`：该组合过于通用，`-D 0x0000`、`-T testTag` 无法把本应用与其他模板工程区分开（见 [04](testing/04-test-plan.md) 日志排查一节与 `harmonyos-harness` 技能）。
+全应用只有一个域。**禁止**使用 DevEco 模板默认的 `0x0000` 与 `testTag`：该组合过于通用，`-D 0x0000`、`-T testTag` 无法把本应用与其他模板工程区分开（见 [04](../testing/04-test-plan.md) 日志排查一节与 `harmonyos-harness` 技能）。
 
 ```ts
 // entry/src/main/ets/services/Logging.ets —— 唯一权威来源
@@ -157,7 +157,7 @@ Python 端对应要求：`backend/server.py` 的 `log_message` 已重写为空�
 
 1. 新模块 → 先在 `Logging.ets` 注册 tag，同步本文件第 1 节表格。
 2. 提交前 `node scripts/check-standards.cjs`（`bash scripts/verify.sh` 第一阶段已包含）必须无 `LOG-*`/`PY-*` 错误。
-3. 规则调整（例如隐私词表扩容）必须同时改 `check-standards.cjs` 与本文件，并在 [10 问题记录](testing/10-test_record.md) 记录动机。
+3. 规则调整（例如隐私词表扩容）必须同时改 `check-standards.cjs` 与本文件，并在 [10 问题记录](../issues/10-test_record.md) 记录动机。
 4. 日志规范不改变业务语义：为满足规范新增的日志不得提前返回、不得吞异常、不得影响控制流。
 
 ## 9. 增量记录

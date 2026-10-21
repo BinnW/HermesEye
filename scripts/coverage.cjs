@@ -16,7 +16,7 @@
  * 依赖：用例通过 vm.runInNewContext(code, sandbox, { filename }) 登记生产文件路径，
  * 否则 V8 无法把覆盖归到文件；本脚本用与用例相同的 compilerOptions 重新转译并解析
  * source map，把行号映射回源码（TS 会省略纯类型行，不能用生成行号直接当源码行号）。
- * 行/块口径与下限见 docs/15-coding-standard.md §8.1。
+ * 行/块口径与下限见 docs/design/15-coding-standard.md §8.1。
  */
 const fs = require('node:fs');
 const os = require('node:os');
@@ -358,7 +358,7 @@ if (neverLoaded.length > 0) {
 
 console.log('');
 if (violations.length === 0) {
-  console.log('覆盖率门禁: PASS（下限见 docs/15-coding-standard.md §8.1）');
+  console.log('覆盖率门禁: PASS（下限见 docs/design/15-coding-standard.md §8.1）');
 } else {
   console.log(`覆盖率门禁: FAIL（${violations.length} 项不达标）`);
   for (const violation of violations) console.log(`  - ${violation}`);

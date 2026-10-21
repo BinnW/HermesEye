@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /*
- * 规范门禁自身的单元测试（docs/15 §8.1 要求 scripts/check-standards.cjs 覆盖率 ≥90%）。
+ * 规范门禁自身的单元测试（docs/design/15 §8.1 要求 scripts/check-standards.cjs 覆盖率 ≥90%）。
  *
  * 每条规则用一个最小 fixture 触发，断言规则 ID 出现；另有一个"合规 fixture"断言零发现。
  * CLI 分支（--help/--list-rules/未知参数/--json/默认仓库扫描）用子进程覆盖。

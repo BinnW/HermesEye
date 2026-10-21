@@ -95,5 +95,5 @@ Token 等凭据只进 Asset Store（`services/CredentialStore.ets` 的模式：`
 
 1. `bash scripts/verify.sh --label <你的改动名>` —— 必须 7/7 通过。
 2. 变化前后对比 ArkTS 告警数；**不要增加**。处理过的 `@throws` 调用要让计数下降。
-3. 改了 `core/` 就在对应 Node 套件里加行为用例；改了 ArkUI 就同步 `docs/09-frontend-design-V1.0.md` 与交互稿。
+3. 改了 `core/` 就在对应 Node 套件里加行为用例；改了 ArkUI 就同步 `docs/design/09-frontend-design-V1.0.md` 与交互稿。
 4. 明确区分「编译通过」「逻辑用例通过」「设备验收通过」——三者互不替代。

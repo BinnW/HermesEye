@@ -70,7 +70,7 @@ This configuration is user-provided; it is not evidence of a successful live tes
 loopback HTTP server; Hermes is injected, not contacted. `node scripts/test-business.cjs`
 tests production client rules/coordinator with injected platform adapters.
 Both are stages in `bash scripts/verify.sh`. A sandbox must permit loopback listening.
-See `docs/03-architecture.md` section 13 for implemented scope and outstanding integration.
+See `docs/design/03-architecture.md` section 13 for implemented scope and outstanding integration.
 
 Live validation on 2026-10-07 subsequently passed against the configured local Hermes:
 authentication, native two-turn session history, duplicate-operation handling, and a new

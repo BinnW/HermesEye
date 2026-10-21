@@ -173,12 +173,12 @@ for suite in domain services workspace business; do
 done
 
 # The standards gate is the first verify.sh stage; without it the coding/logging
-# standards in docs/15 and docs/16 have no executable enforcement.
-if [ -f scripts/check-standards.cjs ] && [ -f docs/15-coding-standard.md ] && [ -f docs/16-logging-standard.md ]; then
+# standards in docs/design/15 and docs/design/16 have no executable enforcement.
+if [ -f scripts/check-standards.cjs ] && [ -f docs/design/15-coding-standard.md ] && [ -f docs/design/16-logging-standard.md ]; then
   rules="$("${DEVECO_NODE:-node}" scripts/check-standards.cjs --list-rules 2>/dev/null | wc -l | tr -d ' ' || echo 0)"
-  record PASS standards-gate "scripts/check-standards.cjs ($rules rules) + docs/15 + docs/16"
+  record PASS standards-gate "scripts/check-standards.cjs ($rules rules) + docs/design/15 + docs/design/16"
 else
-  record FAIL standards-gate 'standards gate or its normative docs are missing (docs/15, docs/16, scripts/check-standards.cjs)'
+  record FAIL standards-gate 'standards gate or its normative docs are missing (docs/design/15, docs/design/16, scripts/check-standards.cjs)'
 fi
 
 if python3 -c 'import sys, sqlite3; assert sys.version_info >= (3, 10)' >/dev/null 2>&1; then

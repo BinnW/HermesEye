@@ -275,7 +275,6 @@ export struct ProjectPanel {
     Column({ space: $r('app.float.space_tight') }) {
       if (this.editing) { this.editor() }
       else if (this.project) {
-        Text(this.project.name).fontSize($r('app.float.font_page_title')).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_primary')).width('100%')
         Row({ space: $r('app.float.space_tight') }) {
           if (this.project.status !== 'archived') {
             Button('＋').id('project-add-menu').constraintSize({ minHeight: $r('app.float.touch_min'), minWidth: $r('app.float.touch_min') }).backgroundColor(Color.Transparent).fontColor($r('app.color.action_primary')).onClick(() => { this.panel = 'add'; })
@@ -288,7 +287,9 @@ export struct ProjectPanel {
           ForEach(['overview', 'milestones', 'actions', 'reviews'], (section: string) => {
             Button(section === 'overview' ? '概览' : section === 'milestones' ? '阶段' : section === 'actions' ? '行动' : '复盘')
               .id('project-tab-' + section).layoutWeight(1).constraintSize({ minHeight: $r('app.float.touch_min') }).fontSize($r('app.float.font_aux'))
-              .fontColor($r('app.color.selection_text')).backgroundColor(this.section === section ? $r('app.color.selection_bg') : Color.Transparent)
+              .fontWeight(this.section === section ? FontWeight.Medium : FontWeight.Normal)
+              .fontColor(this.section === section ? $r('app.color.selection_text') : $r('app.color.text_secondary'))
+              .backgroundColor(this.section === section ? $r('app.color.selection_bg') : Color.Transparent)
               .onClick(() => { this.section = section; })
           }, (section: string) => section)
         }.width('100%')

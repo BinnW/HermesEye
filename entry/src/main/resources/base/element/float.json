@@ -83,6 +83,10 @@
     {
       "name": "nav_bottom_margin",
       "value": "18vp"
+    },
+    {
+      "name": "page_header_height",
+      "value": "64vp"
     }
   ]
 }

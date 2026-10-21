@@ -1,6 +1,6 @@
 # HermesEye · V1.0 重构与验收记录
 
-日期：2026-10-01。状态：客户端重构与本机自动测试已完成本轮验证，**完整 V1.0 尚未完成，不是正式发行版**。需求以 [08](08-product-requirements-V1.0.md) 为准。
+日期：2026-10-01。状态：客户端重构与本机自动测试已完成本轮验证，**完整 V1.0 尚未完成，不是正式发行版**。需求以 [08](../design/08-product-requirements-V1.0.md) 为准。
 
 ## 本轮工程变更
 - 今日 / 项目 / 阅读 / 我的四入口；今日计划 → 项目进展 → 最近在读。
@@ -27,7 +27,7 @@
 |真实 Hermes / Tailscale / 服务端重启 / 多端|未运行|未提供可达实例与实际协议|
 |微信读书 / IMA / 健康 / Vault / 多 Agent / 部署|未接入、未验证|不能计为V1.0通过|
 
-可复核证据：[自动验证摘录](testing/validation/V1.0/automated-results.txt)、[Hypium 原始结果](testing/validation/V1.0/hypium-result.txt)。完整本机 HTML 报告由 DevEco 生成在 `entry/.test/default/outputs/test/reports/index.html`，不提交生成目录。
+可复核证据：[自动验证摘录](validation/V1.0/automated-results.txt)、[Hypium 原始结果](validation/V1.0/hypium-result.txt)。完整本机 HTML 报告由 DevEco 生成在 `entry/.test/default/outputs/test/reports/index.html`，不提交生成目录。
 
 编译仍有系统 API “可能抛出异常”的静态提示，调用入口捕获错误；设备异常行为仍需实测。设备测试包存在工具生成资源的 `start_window_background` 重复声明警告，未阻止构建。
 
@@ -43,7 +43,7 @@ bash scripts/test-deveco.sh
 ## 发布范围与阻塞
 这轮改写没有核验或实现真实 Hermes 的业务同步/服务端会话、远端运行控制、部署、双Vault、读书/健康链路及周期强提醒。它们仍是 V1.0 发布前的必需工作，不是从需求中移除。
 
-待提供：家庭 Hermes 版本/接口和可达地址；目标设备/签名；周期时段、量表、模板及自动化授权策略。凭据只在应用本机填写。详见 [交付计划](06-project-plan.md) 与 [验收矩阵](testing/04-test-plan.md)。
+待提供：家庭 Hermes 版本/接口和可达地址；目标设备/签名；周期时段、量表、模板及自动化授权策略。凭据只在应用本机填写。详见 [交付计划](../plans/06-project-plan.md) 与 [验收矩阵](04-test-plan.md)。
 
 历史 v0.1.0 包与其验收保留在 `releases/v0.1.0/` 和 [历史报告](history/V0.2/05-release.md)，未覆盖、未作为 V1.0 产物。当前 unsigned HAP 不表示可直接正式安装发行。
 
@@ -71,9 +71,9 @@ bash scripts/test-deveco.sh
 | 键盘 UI 回归 | 新建项目页：弹出后底部导航隐藏、滚动区底边上移；输入单行／多行文字；键盘保持打开时可滚动到创建按钮；收起后导航与可用高度恢复、草稿保留；未创建项目或发送 Hermes 请求 |
 | 待用户／设备复测 | 连接表单、会话、记录等其他页面的逐项输入体验；长中文与超长文本、横屏、分屏、大字号、不同输入法、真机 |
 
-证据：[设备 Hypium 结果](testing/validation/keyboard-2026-10-02/device-tests.txt)、[Previewer 结果](testing/validation/keyboard-2026-10-02/previewer-tests.txt)。应用冷启动可能按已有配置执行自动连接检测；键盘测试本身不提交业务数据。
+证据：[设备 Hypium 结果](validation/keyboard-2026-10-02/device-tests.txt)、[Previewer 结果](validation/keyboard-2026-10-02/previewer-tests.txt)。应用冷启动可能按已有配置执行自动连接检测；键盘测试本身不提交业务数据。
 
-视觉复核：模拟器竖屏中文输入法下，输入框处于键盘上方，底部导航隐藏；在输入框外侧滑动可将完整“创建项目”按钮滚动到键盘上方。截图：[键盘弹出](testing/validation/keyboard-2026-10-02/keyboard-open.png)、[滚动到提交按钮](testing/validation/keyboard-2026-10-02/keyboard-scroll.png)。
+视觉复核：模拟器竖屏中文输入法下，输入框处于键盘上方，底部导航隐藏；在输入框外侧滑动可将完整“创建项目”按钮滚动到键盘上方。截图：[键盘弹出](validation/keyboard-2026-10-02/keyboard-open.png)、[滚动到提交按钮](validation/keyboard-2026-10-02/keyboard-scroll.png)。
 
 ## 手机日历读取权限修复 · 2026-10-02
 模拟器日志显示旧版查询进入 `DataShareHelper in low permission`，查询成功但返回零条日程。原实现仅声明和请求 `READ_CALENDAR`，现统一使用 `READ_WHOLE_CALENDAR`，用于读取手机日历中其他应用创建的今日日程；仍仅在用户点击后申请，只读，不自动上传。拒绝授权时提示到系统设置恢复授权。
@@ -82,7 +82,7 @@ bash scripts/test-deveco.sh
 
 ## 测试用例重新设计 · 2026-10-03
 
-范围：按当前 V1.0 代码重新设计全部测试用例（[04](testing/04-test-plan.md) 重写为 N/S/W/L/U 五个编号系列），并针对 [10](testing/10-test_record.md) 两项模拟器实测问题补充回归设计。本轮只改测试与文档，未改生产代码。
+范围：按当前 V1.0 代码重新设计全部测试用例（[04](04-test-plan.md) 重写为 N/S/W/L/U 五个编号系列），并针对 [10](../issues/10-test_record.md) 两项模拟器实测问题补充回归设计。本轮只改测试与文档，未改生产代码。
 
 新增用例：领域 4 项（上下文 10 条上限、裸提示词、回复 32000 字边界、cleanText 上限边界）；服务 7 项（连接检测端点与失败分类、空白 Token/空引用、提醒通知顺序与工作日集合、非法提醒输入、取消透传）；工作区 11 项（深拷贝隔离、发送新快照契约、缺失空间、连接/空间不匹配、悬空链接、空白重命名、纯正文记录按保存日汇总、畸形历史地址、默认端口、重复保存替换凭据、空白 Token 不留痕）；Previewer Hypium 3 项（拷贝隔离、发送快照契约、悬空链接）。
 
@@ -95,7 +95,7 @@ bash scripts/test-deveco.sh
 | 主应用与 ohosTest Debug HAP | `test-deveco.sh` 退出码 0，编译打包通过 |
 | 设备 UI / 真实 Hermes | 本轮未运行（无已连接设备） |
 
-证据：[本轮验证摘录](testing/validation/test-redesign-2026-10-03/results.txt)。
+证据：[本轮验证摘录](validation/test-redesign-2026-10-03/results.txt)。
 
 ## 日历内容响应式刷新修复 · 2026-10-03
 00:48 的模拟器日志确认 `READ_WHOLE_CALENDAR` 生效（high permission），GetEvents 成功返回至少一条日程。展示仍未更新的原因是日历字符串按值传入 `@Builder hint`，生成代码闭包保留初始文本。每日计划和数据来源页改为 Text 直接读取 `@State snapshot`，采集时间一并处理。
@@ -114,7 +114,7 @@ bash scripts/test-deveco.sh
 
 ## 问题1–5回归测试重构 · 2026-10-03
 
-范围：按 [10](testing/10-test_record.md) 问题1～5 的修复重设计回归（[04](testing/04-test-plan.md) 同步更新），保证后续重构可依赖自动回归。本轮只改测试与文档，未改生产代码。
+范围：按 [10](../issues/10-test_record.md) 问题1～5 的修复重设计回归（[04](04-test-plan.md) 同步更新），保证后续重构可依赖自动回归。本轮只改测试与文档，未改生产代码。
 
 新增用例：服务 2 项（日历今日范围剔除与多日历合并排序、实例时间回退与全天缺省）；工作区 8 项（send 失败就地保留气泡与错误、跨会话草稿隔离、空选择与按空间去重、calendarSource 校验与旧计划兼容、超长标题导入原子失败、Toast 去重与时长、会话页与 Toast 两条页面源守卫）；Previewer Hypium 2 项（日历导入与来源校验镜像）。
 
@@ -125,7 +125,7 @@ bash scripts/test-deveco.sh
 | 主应用、ohosTest、Previewer 构建 | `test-deveco.sh` 退出码 0，3 次 BUILD SUCCESSFUL |
 | 设备 UI / 真实 Hermes | 本轮未运行；D13-①～⑤ 手动与设备验收待执行 |
 
-证据：[本轮验证摘录](testing/validation/issues-1-5-tests-2026-10-03/results.txt)。
+证据：[本轮验证摘录](validation/issues-1-5-tests-2026-10-03/results.txt)。
 
 ## 每日计划模块设计与实现 · 2026-10-03
 
@@ -133,7 +133,7 @@ bash scripts/test-deveco.sh
 
 本轮未新增测试用例，仅为既有服务注入加载器补充运行时依赖。现有三套 Node 回归 15/25/47 共87项通过，Debug 主应用与 ohosTest 包构建通过，Previewer 9项通过。沙箱内 Previewer 无响应，终止后在沙箱外执行同一验证脚本通过。设备UI、权限、锁屏提醒、真实Hermes及新增行为完整验收本轮未执行；未签名、未安装或发布。
 
-交付：[模块规格](modules/11-daily-plan-spec.md)、[开发过程](modules/12-daily-plan-implementation.md)、[交互稿](design/daily-plan/index.html)、[验证证据](testing/validation/daily-plan-2026-10-03/results.txt)。远端个性化建议、强提醒直达及业务同步仍未接入。
+交付：[模块规格](../modules/daily-plan/11-daily-plan-spec.md)、[开发过程](../modules/daily-plan/12-daily-plan-implementation.md)、[交互稿](../design/daily-plan/index.html)、[验证证据](validation/daily-plan-2026-10-03/results.txt)。远端个性化建议、强提醒直达及业务同步仍未接入。
 
 ## 问题8 SDK 异常处理 · 2026-10-06
 
@@ -155,7 +155,7 @@ bash scripts/test-deveco.sh
 
 未验证范围：API 24 真机、锁屏下凭据访问、日历/通知权限实际拒绝与撤销、真实存储空间耗尽和窗口销毁竞态。它们只有注入失败回归或验收步骤，不声称全部设备异常已经复现通过。页面无视觉布局变更，本轮不新增截图。
 
-证据：[最终结果](testing/validation/2026-10-06-issue8-final/results.txt)、[摘要](testing/validation/2026-10-06-issue8-final/summary.json)、[设备测试](testing/validation/2026-10-06-issue8-device/device-test.txt)。首次编译遇到 ArkTS `throw` 类型限制，改为 `throw error as Error` 后重新通过完整门禁；[初次记录](testing/validation/2026-10-06-issue8/results.txt)保留为迭代证据，不作为最终结论。
+证据：[最终结果](validation/2026-10-06-issue8-final/results.txt)、[摘要](validation/2026-10-06-issue8-final/summary.json)、[设备测试](validation/2026-10-06-issue8-device/device-test.txt)。首次编译遇到 ArkTS `throw` 类型限制，改为 `throw error as Error` 后重新通过完整门禁；[初次记录](validation/2026-10-06-issue8/results.txt)保留为迭代证据，不作为最终结论。
 
 ## 2026-10-07 · A2 独立业务服务本地预览
 
@@ -168,7 +168,7 @@ bash scripts/test-deveco.sh
 - 新增业务设备入口用例已编译；本轮主包安装连续超时，独立 `hdc file send` 30秒也未完成。因此**本轮设备测试未执行**，不把已安装的旧包或前批5/5结果当成本轮证据。
 - `git diff --check` 通过。服务测试使用临时 SQLite 和真实回环 HTTP；Hermes为注入实现，无家庭服务器访问或部署。
 
-证据：[最终结果](testing/validation/2026-10-07-architecture-v1-verified/results.txt)、[摘要](testing/validation/2026-10-07-architecture-v1-verified/summary.json)、[环境](testing/validation/2026-10-07-architecture-v1-verified/doctor.json)、[安装超时](testing/validation/2026-10-07-architecture-v1-device/install-retry.txt)、[分步传输](testing/validation/2026-10-07-architecture-v1-device/manual-install.txt)。首次编译失败（ArkTS构造器参数属性/显式接口）已修正，保留[诊断](testing/validation/2026-10-07-architecture-v1/hypium-local.log)。
+证据：[最终结果](validation/2026-10-07-architecture-v1-verified/results.txt)、[摘要](validation/2026-10-07-architecture-v1-verified/summary.json)、[环境](validation/2026-10-07-architecture-v1-verified/doctor.json)、[安装超时](validation/2026-10-07-architecture-v1-device/install-retry.txt)、[分步传输](validation/2026-10-07-architecture-v1-device/manual-install.txt)。首次编译失败（ArkTS构造器参数属性/显式接口）已修正，保留[诊断](validation/2026-10-07-architecture-v1/hypium-local.log)。
 
 ### 未完成与未验证
 
@@ -187,7 +187,7 @@ bash scripts/test-deveco.sh
 - 关闭并重新打开账本后保留回执/绑定；另起Python进程再次提交原operationId仍不增加远端消息。
 - 新进程向同一Need发送第二轮，仅要求复述上一条回复，未重发历史；1.14秒完成，返回正确标识且sessionId未变化。远端隔离会话共4条消息，未见tool/function消息或tool_calls。
 
-证据：[脱敏摘要](testing/validation/2026-10-07-hermes-live/results.txt)、[结构化结果](testing/validation/2026-10-07-hermes-live/results.json)。隔离测试会话保留供追溯，其ID在证据中；合成业务账本位于被忽略的 `backend/.local/`，不含上游Token。本次没有修改产品代码，因此没有重跑编译流水线。
+证据：[脱敏摘要](validation/2026-10-07-hermes-live/results.txt)、[结构化结果](validation/2026-10-07-hermes-live/results.json)。隔离测试会话保留供追溯，其ID在证据中；合成业务账本位于被忽略的 `backend/.local/`，不含上游Token。本次没有修改产品代码，因此没有重跑编译流水线。
 
 ### 未验证范围
 
@@ -201,13 +201,13 @@ bash scripts/test-deveco.sh
 - `device.sh launch`：启动成功，应用进程存在。
 - `device.sh test`：**6/6通过**，覆盖导航、阅读缺失数据展示、键盘避让与输入保留、业务预览入口、真实Asset凭据异常与持久化。
 
-[传输证据](testing/validation/2026-10-07-deploy-recovery/transport-restored.txt)、[安装](testing/validation/2026-10-07-deploy-recovery/install.txt)、[启动](testing/validation/2026-10-07-deploy-recovery/launch.txt)、[设备结果](testing/validation/2026-10-07-deploy-recovery/device-test.txt)。本段补齐此前因传输阻塞未执行的设备回归，不扩展为手机连接真实业务服务、真实日历权限或工具执行已验收。
+[传输证据](validation/2026-10-07-deploy-recovery/transport-restored.txt)、[安装](validation/2026-10-07-deploy-recovery/install.txt)、[启动](validation/2026-10-07-deploy-recovery/launch.txt)、[设备结果](validation/2026-10-07-deploy-recovery/device-test.txt)。本段补齐此前因传输阻塞未执行的设备回归，不扩展为手机连接真实业务服务、真实日历权限或工具执行已验收。
 
 ## 2026-10-07 · 编码规范、日志规范与规范门禁
 
-新增 [15 编码规范](15-coding-standard.md) 与 [16 日志打印规范](16-logging-standard.md)，并把可机检条目实现为 `scripts/check-standards.cjs`（31 条规则，`--json` 机读报告），作为 `scripts/verify.sh` 的第一个阶段。`verify.sh` 因此从 9 阶段变为 **10 阶段**，`--skip-build` 从 5 阶段变为 6 阶段。
+新增 [15 编码规范](../design/15-coding-standard.md) 与 [16 日志打印规范](../design/16-logging-standard.md)，并把可机检条目实现为 `scripts/check-standards.cjs`（31 条规则，`--json` 机读报告），作为 `scripts/verify.sh` 的第一个阶段。`verify.sh` 因此从 9 阶段变为 **10 阶段**，`--skip-build` 从 5 阶段变为 6 阶段。
 
-本轮实际修复（`docs/testing/10-test_record.md` 问题10）：
+本轮实际修复（`docs/issues/10-test_record.md` 问题10）：
 
 - 日志域与 tag：`EntryAbility.ets`、`EntryBackupAbility.ets` 从模板默认 `0x0000`/`testTag` 迁移到新增的 `services/Logging.ets`（`LOG_DOMAIN=0x1200` + 13 个已登记 tag）；`PlatformErrors.ets` 从裸字面量迁移到同一常量。
 - 隐私：删除 3 处 `JSON.stringify(err|bundleVersion)` 日志，只记录数值错误码/版本号。
@@ -216,7 +216,7 @@ bash scripts/test-deveco.sh
 
 验证：`bash scripts/verify.sh --label coding-standards --deny-arkts-warnings` → **10/10 阶段通过**；Node **109**、服务端 **12**、Previewer **10** 全通过；`hap-default`、`hap-ohostest`、`hypium-local` 均 **0 条 ArkTS 告警**；规范门禁 **0 error / 14 warning**（存量告警见 15 §10）。
 
-证据：[结果](testing/validation/2026-10-07-coding-standards/results.txt)、[机读规范报告](testing/validation/2026-10-07-coding-standards/standards.json)、[摘要](testing/validation/2026-10-07-coding-standards/summary.json)。
+证据：[结果](validation/2026-10-07-coding-standards/results.txt)、[机读规范报告](validation/2026-10-07-coding-standards/standards.json)、[摘要](validation/2026-10-07-coding-standards/summary.json)。
 
 未验证范围：`stateStyles` 内 `$r` 的历史 jscrash 根因仍未定位（仅列为 `CS-12` 存量告警）；设备侧未重跑（本轮不涉及运行期行为变更，但日志文案与域/tag 变化尚未做设备日志核对）；分支覆盖率门禁（`scripts/coverage.cjs`）与业务点击用例在后续迭代落地，落地前 15 §8.1 的覆盖率下限不代表已达标。
 
@@ -224,7 +224,7 @@ bash scripts/test-deveco.sh
 
 在规范门禁之后，把"覆盖每个分支"与"模拟点击"变成可执行资产：
 
-- 新增 `scripts/coverage.cjs`：用 `NODE_V8_COVERAGE` 采集六套 Node 用例在 vm 中执行的生产代码，解析 source map 把行号映射回源码，按 [15 §8.1](15-coding-standard.md) 的下限拦截（`core/` 100%/100%，`services/` ≥95% 行/≥90% 块，门禁脚本 ≥90%）。
+- 新增 `scripts/coverage.cjs`：用 `NODE_V8_COVERAGE` 采集六套 Node 用例在 vm 中执行的生产代码，解析 source map 把行号映射回源码，按 [15 §8.1](../design/15-coding-standard.md) 的下限拦截（`core/` 100%/100%，`services/` ≥95% 行/≥90% 块，门禁脚本 ≥90%）。
 - 新增 `scripts/test-standards.cjs`：门禁自身 37 条用例（31 条规则各一个最小 fixture + CLI 分支）。
 - 新增 `scripts/test-ui-flows.cjs`（F01–F06）：把页面点击建模为轨迹驱动真实交互方法，130 条中文语义断言。
 - 新增 `entry/src/ohosTest/ets/test/Flow.test.ets`（U08/U09）：设备端模拟点击，验证计划日期按钮确实改变 `planDate`（通过编辑页读取）、编辑器打开/返回不落盘。
@@ -257,7 +257,7 @@ bash scripts/test-deveco.sh
 | 14.2 | 保存成功但连接失败时状态栏丢失"配置已保存"事实 | `Index.ets:246` |
 | 14.3 | 重复导入无新增仍触发整快照写盘并提示"已加入 0 条计划" | `Index.ets:402-407` |
 
-详见 [10 问题记录](testing/10-test_record.md) 问题 11–14。
+详见 [10 问题记录](../issues/10-test_record.md) 问题 11–14。
 
 ### 未验证与未修复范围
 
@@ -265,15 +265,15 @@ bash scripts/test-deveco.sh
 - 覆盖率仅覆盖可在 Node/注入 mock 下执行的生产代码；`components/*`、两个 ability、`IntegrationCapabilities.ets` 未被 Node 加载（0%，不计入下限），`pages/Index.ets` 以抽取方法方式驱动、行号不可比。
 - 设备实测仅在 DevEco 内置模拟器（API 26）完成，真机、权限授予、提醒、真实日历、真实 Hermes 与真实业务服务仍未验收。
 
-证据：[13/13 结果](testing/validation/2026-10-07-test-rebuild/results.txt)、[覆盖率报告](testing/validation/2026-10-07-test-rebuild/coverage.json)、[规范报告](testing/validation/2026-10-07-test-rebuild/standards.json)、[摘要](testing/validation/2026-10-07-test-rebuild/summary.json)、[设备 8/8](testing/validation/2026-10-07-click-flows-device/device-test.txt)、[问题11诊断](testing/validation/2026-10-07-click-flows-diag3/device-test.txt)。
+证据：[13/13 结果](validation/2026-10-07-test-rebuild/results.txt)、[覆盖率报告](validation/2026-10-07-test-rebuild/coverage.json)、[规范报告](validation/2026-10-07-test-rebuild/standards.json)、[摘要](validation/2026-10-07-test-rebuild/summary.json)、[设备 8/8](validation/2026-10-07-click-flows-device/device-test.txt)、[问题11诊断](validation/2026-10-07-click-flows-diag3/device-test.txt)。
 
 ## 2026-10-09 · 项目模块本机实现
 
-交付[项目规格](modules/17-project-spec.md)、[交互原型](design/projects/index.html)和[开发记录](modules/18-project-implementation.md)。新增项目类型、目标/完成标准、目标日期、下一步、检索/状态筛选、里程碑、追加复盘、达成依据与可恢复归档，复用任务与需求会话；Hermes入口先准备可编辑的项目摘要，不自动发送。未来多Agent构建、审批、执行恢复与部署形成规格，未接入真实执行端。
+交付[项目规格](../modules/projects/17-project-spec.md)、[交互原型](../design/projects/index.html)和[开发记录](../modules/projects/18-project-implementation.md)。新增项目类型、目标/完成标准、目标日期、下一步、检索/状态筛选、里程碑、追加复盘、达成依据与可恢复归档，复用任务与需求会话；Hermes入口先准备可编辑的项目摘要，不自动发送。未来多Agent构建、审批、执行恢复与部署形成规格，未接入真实执行端。
 
 最终verify（`project-module-delivery`）**12/13，整体FAIL**：既有逻辑与后端检查通过，主HAP/ohosTest HAP编译通过，ArkTS零告警，本地Hypium10/10。规范门禁0 error/13 warning；唯一失败为coverage，core行80.5%/块94%，低于100%要求。用户明确要求本轮不新增测试用例，未改测试文件或降低阈值。不能宣称完整门禁通过或新增项目功能已经端到端验收。
 
-无设备安装/实测，无真实Hermes、项目远端同步、multi-agent构建或部署验收；HTML因浏览器file协议策略未完成视觉核验，仅语法检查。证据[摘要](testing/validation/2026-10-09-project-module-delivery/summary.json)仅本地保留。
+无设备安装/实测，无真实Hermes、项目远端同步、multi-agent构建或部署验收；HTML因浏览器file协议策略未完成视觉核验，仅语法检查。证据[摘要](validation/2026-10-09-project-module-delivery/summary.json)仅本地保留。
 
 ## 2026-10-09 · 项目模块用例补充与覆盖率恢复
 
@@ -286,11 +286,11 @@ bash scripts/test-deveco.sh
 
 结果：`bash scripts/verify.sh --label project-module-tests --deny-arkts-warnings` → **14/14 阶段通过**；`core` 行 590/590、块 479/479（**100%/100%**），`services` 99.6% 行/99.3% 块，门禁脚本 94.9%/90.8%，0 项不达标；三处编译 0 条 ArkTS 告警；规范门禁 0 error / 13 warning。
 
-记录的问题（未修改生产代码）：项目状态机放行规格状态图未定义的 `paused→completed` 与 `completed→paused`（`core/Workspace.ts:431`）；缺完成标准时抛通用文案而非项目域提示。详见 [10 问题记录](testing/10-test_record.md) 问题 15。
+记录的问题（未修改生产代码）：项目状态机放行规格状态图未定义的 `paused→completed` 与 `completed→paused`（`core/Workspace.ts:431`）；缺完成标准时抛通用文案而非项目域提示。详见 [10 问题记录](../issues/10-test_record.md) 问题 15。
 
 未验证：设备层的项目新建提交、里程碑/复盘落盘与状态流转（由 Node F08 覆盖，设备未验）；深色、大字号、320vp、读屏与真实 Hermes 联调。
 
-证据：[14/14 阶段结果](testing/validation/2026-10-09-project-module-tests/results.txt)、[覆盖率报告](testing/validation/2026-10-09-project-module-tests/coverage.json)、[设备 10/10](testing/validation/2026-10-09-project-module-device/device-test.txt)（证据目录仅本地保留）。
+证据：[14/14 阶段结果](validation/2026-10-09-project-module-tests/results.txt)、[覆盖率报告](validation/2026-10-09-project-module-tests/coverage.json)、[设备 10/10](validation/2026-10-09-project-module-device/device-test.txt)（证据目录仅本地保留）。
 
 ## 2026-10-11 · V1 项目与阅读架构实施
 
@@ -317,7 +317,7 @@ bash scripts/test-deveco.sh
 | 本地 Hypium | **10/10** |
 | 模拟器最终制品 | **11/11 通过**，API26 模拟器；主 HAP 与 ohosTest 安装成功，含阅读/项目入口与键盘回归 |
 
-本地证据：[最终结果](testing/validation/2026-10-11-v1-project-reading-final/results.txt)、[摘要](testing/validation/2026-10-11-v1-project-reading-final/summary.json)、[覆盖率](testing/validation/2026-10-11-v1-project-reading-final/coverage.json)、[设备结果](testing/validation/2026-10-11-v1-project-reading-device-final/device-test.txt)。早期失败包含 ArkUI enabled 命名冲突、沙箱回环监听限制、测试夹具未更新策略与旧 F08 未先恢复暂停项目；不作为最终通过证据。
+本地证据：[最终结果](validation/2026-10-11-v1-project-reading-final/results.txt)、[摘要](validation/2026-10-11-v1-project-reading-final/summary.json)、[覆盖率](validation/2026-10-11-v1-project-reading-final/coverage.json)、[设备结果](validation/2026-10-11-v1-project-reading-device-final/device-test.txt)。早期失败包含 ArkUI enabled 命名冲突、沙箱回环监听限制、测试夹具未更新策略与旧 F08 未先恢复暂停项目；不作为最终通过证据。
 
 ### 限制与后续验收
 
@@ -335,11 +335,11 @@ bash scripts/test-deveco.sh
 
 结果：`bash scripts/verify.sh --label reading-tests --deny-arkts-warnings` → **15/15 阶段通过**；`core` 624/624 行、525/525 块（100%/100%），`components` 切片范围 166/166 行、87/87 块（100%/100%），`services` 99.6%/99.3%，`backend` 5 个模块行覆盖 100%；三处编译 0 条 ArkTS 告警；规范门禁 0 error / 13 warning；资源断言 524 条通过。
 
-记录的问题（未修改生产代码）：失败周期在元数据校验前发布新副本、容量边界只校验本次入参、`Reading.start()` 不幂等且 `stop()` 后无法重启、客户端未校验周期 1–720、未勾选同意仍可采集、提问片段未校验属于选中原文、业务面板连接门控只在 UI 层。详见 [10 问题记录](testing/10-test_record.md) 问题 16。
+记录的问题（未修改生产代码）：失败周期在元数据校验前发布新副本、容量边界只校验本次入参、`Reading.start()` 不幂等且 `stop()` 后无法重启、客户端未校验周期 1–720、未勾选同意仍可采集、提问片段未校验属于选中原文、业务面板连接门控只在 UI 层。详见 [10 问题记录](../issues/10-test_record.md) 问题 16。
 
 未验证：真实微信读书/Hermes 来源、家庭部署、手机网络、长周期实跑与大数据容量；项目/阅读页的深色、大字号、320vp 与读屏；设备层完整表单落盘链路。
 
-证据：[15/15 阶段结果](testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](testing/validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](testing/validation/2026-10-11-reading-tests-device/device-test.txt)（证据目录仅本地保留）。
+证据：[15/15 阶段结果](validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](validation/2026-10-11-reading-tests-device/device-test.txt)（证据目录仅本地保留）。
 
 
 ## 2026-10-11 · dev V2 前端交付
@@ -353,13 +353,13 @@ bash scripts/test-deveco.sh
 在 V2 前端已合入（commit 013968f）的基础上，按要求复核单元测试与交互路径，并尝试真实 Hermes、日历与华为运动健康。
 
 - **单元测试与交互路径**：已满足且复测通过——`verify.sh --deny-arkts-warnings` 15/15；`core` 行/块 100%/100%，`components` 切片可达范围 100%/100%，`services` 99.6%/99.3%，`backend` 5 模块行覆盖 100%；模拟点击 20 组（F01–F16 + V2-01~04）；设备 12/12；三处编译 0 条 ArkTS 告警，规范门禁 0 error / 13 warning。
-- **日历（真实读取成功）**：在 API 26 模拟器走真实交互路径（今日 → 每日计划 → 工具与来源 → 手机日历 → 授权并刷新），`readCalendarEntries` 返回 **「2026-10-11 · 2 条日程」**，无需权限弹窗（模拟器默认授予）。这填补了此前「日历/提醒授权未验收」中的日历读取一项；证据 [calendar-probe](testing/validation/2026-10-11-calendar-probe/device-test.txt)。
+- **日历（真实读取成功）**：在 API 26 模拟器走真实交互路径（今日 → 每日计划 → 工具与来源 → 手机日历 → 授权并刷新），`readCalendarEntries` 返回 **「2026-10-11 · 2 条日程」**，无需权限弹窗（模拟器默认授予）。这填补了此前「日历/提醒授权未验收」中的日历读取一项；证据 [calendar-probe](validation/2026-10-11-calendar-probe/device-test.txt)。
 - **华为运动健康（未接入，已核实）**：`services/IntegrationCapabilities.ets` 中 `health` 状态为「尚未接入」；当前 DevEco SDK 的 `ets/api` 无 HealthKit/sport/fitness 公开接口，模拟器仅有 `com.huawei.hmos.health.core` 系统包而无应用可调用面。要「获取运动健康内容」需先具备华为运动健康开放资格、选定受支持数据项并申请独立授权，再新增一个平台适配器——这是新功能而非可立即联调的测试项。
 - **真实 Hermes（待凭据）**：探测到本地 Hermes `127.0.0.1:8642` 可达（`/v1/capabilities` 返回 401，需鉴权）；业务服务 `127.0.0.1:8787` 未在运行，且当前 shell 无 `HERMES_TOKEN`/`HERMES_EYE_TOKEN`。按安全约定，令牌不得进入聊天或文件；真实往返需先以环境变量注入凭据后启动业务服务。
 
 未验证：真机签名、手机网络到 Hermes 的连通、阅读外部采集、提醒/Vault 授权、运动健康数据读取；深色像素、大字号、320vp、读屏、旋转与长历史性能。
 
-证据：[15/15 门禁](testing/validation/2026-10-11-v2-baseline/results.txt)、[设备 12/12](testing/validation/2026-10-11-v2-device-final/device-test.txt)、[日历探测](testing/validation/2026-10-11-calendar-probe/device-test.txt)（证据目录仅本地保留）。
+证据：[15/15 门禁](validation/2026-10-11-v2-baseline/results.txt)、[设备 12/12](validation/2026-10-11-v2-device-final/device-test.txt)、[日历探测](validation/2026-10-11-calendar-probe/device-test.txt)（证据目录仅本地保留）。
 
 ## 2026-10-11 补充 · 真实 Hermes 往返联调成功
 
@@ -371,12 +371,12 @@ bash scripts/test-deveco.sh
 
 真实往返已覆盖「鉴权 → 原生会话（首轮建会话 + 发消息）→ 回执落账本」链路；仍未覆盖：手机网络到本机服务的连通、上游重启、runs/events/工具执行、阅读外部采集。联调结束后业务服务已停止；`backend/.local/.hermes-token` 仍保留（gitignored，600），可自行删除。
 
-证据：[hermes-live-v2](testing/validation/2026-10-11-hermes-live-v2/)（capabilities.json / operation.json / summary.txt）。
+证据：[hermes-live-v2](validation/2026-10-11-hermes-live-v2/)（capabilities.json / operation.json / summary.txt）。
 
 
 ## 2026-10-11 · HermesEye 应用图标
 
-按应用定位与葱青/米白配色新增“眼睛＋负形H”矢量标识，统一AppScope与entry的1024px分层前景/背景，并将入口启动图接为256px圆角版本。源稿及导出方法见 [图标设计说明](design/brand/README.md)。不新增权限或业务行为。
+按应用定位与葱青/米白配色新增“眼睛＋负形H”矢量标识，统一AppScope与entry的1024px分层前景/背景，并将入口启动图接为256px圆角版本。源稿及导出方法见 [图标设计说明](../design/brand/README.md)。不新增权限或业务行为。
 
 实际验证：检查32/48/64/128px预览，前景与背景颜色对比4.72:1；两处PNG逐字节一致。`app-icon` Harness 15/15通过，主包/测试包/本地Hypium零ArkTS告警；API26模拟器安装成功并启动，进程存活。证据位于本地忽略目录 `docs/testing/validation/2026-10-11-app-icon/` 与 `2026-10-11-app-icon-device/`。未新增逻辑测试；本次不重复业务设备套件，未验收不同桌面蒙版、桌面缓存更新及真机启动图像素效果。
 
@@ -393,4 +393,40 @@ bash scripts/test-deveco.sh
 
 **设备回归（跳过）**：模拟器未运行（`hdc list targets` 为空），冷启动被文件沙箱拦截（`hmos_make_ext4fs_from_dir: open: Operation not permitted`，模拟器需写 `~/.Huawei/` 而沙箱仅允许工作区）。ArkTS 组件运行期行为本轮未在设备上复验，需在模拟器启动后补 `bash scripts/device.sh test`。
 
-证据：[门禁](testing/validation/2026-10-17-2026-10-17-workspace-test/results.txt)、[覆盖率](testing/validation/2026-10-17-2026-10-17-workspace-test/coverage.json)（仅本地保留）。
+证据：[门禁](validation/2026-10-17-2026-10-17-workspace-test/results.txt)、[覆盖率](validation/2026-10-17-2026-10-17-workspace-test/coverage.json)（仅本地保留）。
+
+## 2026-10-17 补充 · 设备仿真与模拟点击回归通过
+
+在上一轮「设备回归跳过」之后，模拟器已连接（127.0.0.1:5555），补跑设备仿真与模拟点击测试。首轮 12 项中 **8 项失败**（`Tests run:12, Error:8`），根因是设备用例与「单屏布局 ①②③」重构漂移，非生产代码缺陷：
+
+- 结构性漂移：键盘弹起时粘性页头使 `workspace-scroll` 滚动容器被重建，旧键盘用例依赖其 `getBounds`/`scrollSearch` 句柄而失败；改为直接 `findComponent('project-name')` + 断言「键盘→底部导航隐藏→收键盘输入保留→退出表单导航恢复」。
+- 控件移位：`project-create` 移入粘性页头（Stack 覆盖层，在滚动区外），`scrollSearch` 改为 `findComponent` 直查。
+- 冗余返回：`planToolsUseOneModal...` 末尾多一次 `pressBack`（`plans` 路由已并入首页，多按导致应用退后台）。
+- 其余 5 项为级联失败（首条用例残留「表单+键盘」状态）；修好首条的收尾清理后自动恢复。
+
+修复仅落在 3 个测试文件（`Ability.test.ets`/`Flow.test.ets`/`ProjectFlow.test.ets`），未改任何生产代码；最终设备回归 **12/12 通过**（Failure 0 / Error 0），ohosTest 编译 0 条 ArkTS 告警。
+
+证据：[设备 12/12](validation/2026-10-17-workspace-device/device-test.txt)（仅本地保留）。
+
+
+## 2026-10-18 · 安装签名冲突恢复
+
+`9568332 install sign info inconsistent` 已复现并修复：当前模拟器保留未签名开发安装，本地default产品绑定签名后，signed包与已有身份不一致。移除default产品的本地签名绑定、保留签名材料，重新构建并覆盖安装unsigned主包和测试包；未卸载或清空应用数据。
+
+实际验证：`install-signature-fix` 15/15门禁，ArkTS零告警；主包/测试包安装成功，应用启动后进程存活。安装前后UID、appId与首次安装时间相同。证据位于本地忽略的 `docs/testing/validation/2026-10-18-install-signature/` 与 `2026-10-18-install-signature-fix/`。详见问题18；未新增业务行为或重跑设备业务套件，真机签名部署不在本次验证范围。
+
+## 2026-10-21 · 文档五类归档与索引验证
+
+按用户要求将文档划分为设计、模块、计划、问题、测试；`docs/README.md` 为统一入口，五类各有索引。迁移 26 份文档并保留编号，模块按 frontend / daily-plan / projects / reading 归组，V0.2 历史资料归入对应分类。AGENTS、仓库 README、文档交叉链接、技能引用、脚本和代码注释中的文档路径同步更新；原型资源和本地验证证据位置保留。
+
+实际验证：文档结构审计 37 篇、0 finding；扩展 Markdown 链接扫描 41 篇、无断链；目录迁移与内容保留复核通过；索引检查临时 fixture 8/8、规范门禁自测 37/37 通过。规范门禁为 0 error / 20 warning；doctor 的迁移后规范文件检查通过，整体保留 1 条已知 CodeLinter CLI 警告。Shell / Node 语法检查通过。
+
+证据：[结构检查](validation/2026-10-21-docs-restructure/docs-audit.json)、[环境检查](validation/2026-10-21-docs-restructure/doctor.json)、[验证摘要](validation/2026-10-21-docs-restructure/results.txt)。本次验证仅针对文档整理与配套检查，不代表工作区既有业务改动已重新验收；未运行完整 verify、应用编译、设备或真实服务测试。
+
+## 2026-10-22 · 工作区提交前完整验证
+
+用户要求将未提交内容推送到 GitHub。本批次包含 V2.1 今日单屏、粘性页头、项目/阅读进度展示、我的配置入口及对应回归更新，另包含文档五类重组、索引与 README 重写、文档检查适配和开发构建签名绑定修复。
+
+提交前执行 `bash scripts/verify.sh --deny-arkts-warnings --label pre-push-final`：**15/15 阶段通过**，主包、ohosTest 包与本地 Hypium 均零 ArkTS 告警，本地 Hypium 10/10。规范、资源、覆盖率、领域/服务/工作区/业务/交互流程、后端测试及覆盖率门禁全部通过。首轮 `pre-push` 的后端 HTTP 测试因沙箱禁止回环监听失败；在允许该操作的环境完整重跑后通过，保留首轮诊断，不将其记为业务缺陷。
+
+本机签名配置与材料保留本地，提交内容仅包含移除 default 产品签名绑定的修复；验证证据仍由 gitignore 排除。证据：[最终结果](validation/2026-10-22-pre-push-final/results.txt)、[摘要](validation/2026-10-22-pre-push-final/summary.json)、[首轮诊断](validation/2026-10-22-pre-push/backend-service.log)。本轮未重跑设备、权限、真实 Hermes 或阅读来源验收，既有未验收范围继续保留。

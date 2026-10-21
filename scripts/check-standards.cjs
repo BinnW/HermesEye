@@ -3,7 +3,7 @@
 /*
  * HermesEye 规范门禁。
  *
- * 把 docs/15-coding-standard.md 与 docs/16-logging-standard.md 中可静态判定的条目
+ * 把 docs/design/15-coding-standard.md 与 docs/design/16-logging-standard.md 中可静态判定的条目
  * 变成一条命令，供 verify.sh 作为第一个阶段执行。DevEco 自带 CodeLinter 没有可用
  * 的无头 CLI（见 docs/testing/13-harmony-harness.md 已知限制 1），所以规则在这里实现。
  *
@@ -375,7 +375,7 @@ function checkLogging(file, source, masked, registry) {
       if (!tagMatch) {
         add('LOG-03', file, line, `hilog tag 写成了 ${call.args[1]}`, '使用已注册的 LogTag 常量，例如 LogTag.Workspace');
       } else if (registry && !registry.tags.has(tagMatch[1])) {
-        add('LOG-03', file, line, `未注册的 tag LogTag.${tagMatch[1]}`, '先在 Logging.ets 登记，再同步 docs/16-logging-standard.md 的注册表');
+        add('LOG-03', file, line, `未注册的 tag LogTag.${tagMatch[1]}`, '先在 Logging.ets 登记，再同步 docs/design/16-logging-standard.md 的注册表');
       }
     }
     if (call.args.length >= 3) {
@@ -522,7 +522,7 @@ function main() {
   const report = result.report;
 
   if (!quiet || report.errors > 0) {
-    console.log('HermesEye 规范门禁（docs/15 编码规范 + docs/16 日志规范）');
+    console.log('HermesEye 规范门禁（docs/design/15 编码规范 + docs/design/16 日志规范）');
     console.log(`扫描 ${report.scannedFiles} 个文件；规则 ${RULES.length} 条`);
     for (const finding of report.findings) {
       console.log(`  ${finding.severity === 'error' ? 'ERROR' : 'WARN '} ${finding.rule} ${finding.file}:${finding.line} ${finding.message}`);

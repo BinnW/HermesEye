@@ -2,7 +2,7 @@
 
 更新：2026-10-07。本文档描述 HermesEye 的鸿蒙开发 harness **当前具备哪些能力、能力边界在哪、哪些声称的能力其实跑不通**。
 
-定位：这是 harness 自身的说明书，不是产品需求，也不是验收结论。构建通过、逻辑测试通过、设备测试通过三者互不替代；实际交付状态以 [05 验收记录](../05-release.md) 与 [10 问题记录](10-test_record.md) 为准。
+定位：这是 harness 自身的说明书，不是产品需求，也不是验收结论。构建通过、逻辑测试通过、设备测试通过三者互不替代；实际交付状态以 [05 验收记录](05-release.md) 与 [10 问题记录](../issues/10-test_record.md) 为准。
 
 ## 1. 总览
 
@@ -76,7 +76,7 @@ bash scripts/verify.sh --timeout 1800           # 单阶段超时（默认 900 �
 
 | 阶段 | 内容 |
 |---|---|
-| `standards` | `node scripts/check-standards.cjs`：docs/15 编码规范 + docs/16 日志规范的机检门禁，同时写出 `standards.json` |
+| `standards` | `node scripts/check-standards.cjs`：docs/design/15 编码规范 + docs/design/16 日志规范的机检门禁，同时写出 `standards.json` |
 | `standards-self-test` | `node scripts/test-standards.cjs`：门禁自身的用例（每条规则一个 fixture + CLI 分支） |
 | `resources` | `node scripts/test-resources.cjs`：`$r('app.string/color.*')` 引用存在性、颜色 base/dark 成对与资源重名 |
 | `coverage` | `node scripts/coverage.cjs`：V8 块/行覆盖，按下限拦截并写出 `coverage.json` |
@@ -94,7 +94,7 @@ bash scripts/verify.sh --timeout 1800           # 单阶段超时（默认 900 �
 
 内建机制：每阶段独立日志、超时看门狗（macOS 无 `timeout`，脚本自带）、ArkTS 告警计数、`summary.json` 机器可读摘要。
 
-`standards` 阶段是 2026-10-07 新增的第一个门禁：它不编译、不跑设备，只做静态规则判定（分层依赖、命名、类型、安全、日志 domain/tag/占位符/隐私、测试注册、Python 日志）。规则清单用 `node scripts/check-standards.cjs --list-rules` 查看，机读报告落在证据目录的 `standards.json`。`error` 级违规使整个流水线失败；`warn` 级只记录，存量清单见 [15 §10](../15-coding-standard.md)。
+`standards` 阶段是 2026-10-07 新增的第一个门禁：它不编译、不跑设备，只做静态规则判定（分层依赖、命名、类型、安全、日志 domain/tag/占位符/隐私、测试注册、Python 日志）。规则清单用 `node scripts/check-standards.cjs --list-rules` 查看，机读报告落在证据目录的 `standards.json`。`error` 级违规使整个流水线失败；`warn` 级只记录，存量清单见 [15 §10](../design/15-coding-standard.md)。
 
 同批新增 `standards-self-test`（门禁自身 37 条用例）与 `coverage`（`scripts/coverage.cjs`）。覆盖率用 `NODE_V8_COVERAGE` 精确块覆盖 + source map 行号映射，按下限拦截：`core/*.ts` 100% 行/块、`services/*.ets` ≥95% 行/≥90% 块、门禁脚本 ≥90%。**注意合并口径**：V8 会省略与外层同计数的嵌套区间，因此必须按"每个进程各自的未执行集合"判定，不能跨进程取区间计数最大值，否则会把只在部分进程走到的分支误判为未覆盖。
 
@@ -264,9 +264,9 @@ node scripts/harness.cjs perf <samples> # 性能样本评估
 ## 13. 维护约束
 
 - 改 `scripts/lib/deveco-env.*` 其中之一，必须同步另一个。
-- 新增、移动或删除 `docs/` 文件时同步维护 [AGENTS.md](../../AGENTS.md) 的文档导航。测试相关文档与证据统一放在 `docs/testing/`（文档 04/10/13；证据 `docs/testing/validation/`）。
-- 本文档记录**能力**；实测结论与未测范围写 [05](../05-release.md)，问题现象与根因写 [10](10-test_record.md)，测试层次与验收矩阵写 [04](04-test-plan.md)。
-- ArkTS 告警基线当前为 **0**（问题8 已于 2026-10-06 清理完毕，见 [10](10-test_record.md)）。改动不应让这个数字回升，可用 `verify.sh --deny-arkts-warnings` 作为门禁。
+- 新增、移动或删除文档时同步所属分类索引与引用；分类结构变化时同步 [文档总索引](../README.md) 与 [AGENTS.md](../../AGENTS.md)。测试计划、验收与 Harness 文档（04/05/13）放在 `docs/testing/`，问题记录（10）放在 `docs/issues/`；证据仍在本地 `docs/testing/validation/`。
+- 本文档记录**能力**；实测结论与未测范围写 [05](05-release.md)，问题现象与根因写 [10](../issues/10-test_record.md)，测试层次与验收矩阵写 [04](04-test-plan.md)。
+- ArkTS 告警基线当前为 **0**（问题8 已于 2026-10-06 清理完毕，见 [10](../issues/10-test_record.md)）。改动不应让这个数字回升，可用 `verify.sh --deny-arkts-warnings` 作为门禁。
 - 不将"已定位""已实现"记为"已验收"。能力存在不等于场景通过。
 
 
@@ -282,9 +282,30 @@ node scripts/harness.cjs perf <samples> # 性能样本评估
 
 新增资产：`scripts/check-standards.cjs`（31 条规范规则）、`scripts/test-standards.cjs`、`scripts/coverage.cjs`、`scripts/test-ui-flows.cjs`（F01–F06 点击轨迹）、`entry/src/ohosTest/ets/test/Flow.test.ets`（U08/U09 设备点击）。前文 2026-10-07 首轮的数量（109 项 Node / 9 阶段）作为历史批次保留。
 
-覆盖率口径的坑：V8 会省略"与外层同计数"的嵌套区间，跨进程取区间计数最大值会把只在部分进程走到的分支误判为未覆盖；必须按"每个执行过该函数的进程各自的未执行集合"判定（见 `coverage.cjs` 注释与 [15 §8.1](../15-coding-standard.md)）。
+覆盖率口径的坑：V8 会省略"与外层同计数"的嵌套区间，跨进程取区间计数最大值会把只在部分进程走到的分支误判为未覆盖；必须按"每个执行过该函数的进程各自的未执行集合"判定（见 `coverage.cjs` 注释与 [15 §8.1](../design/15-coding-standard.md)）。
 
 
 ### 2026-10-09 · 验证证据仅本地保留
 
 用户要求 `docs/testing/validation/` 不再上传GitHub；该目录及旧路径 `docs/validation/` 由 `.gitignore` 排除。Harness仍照常生成本地证据，不删除本地结果。不要用 `git add -f` 绕过规则。提交时仅保留05/10中的验证摘要；证据链接为本地导航，不保证GitHub或新克隆中可访问。
+
+
+## 2026-10-18 · 安装签名一致性排查
+
+错误 `9568332 install sign info inconsistent` 表示同包名已有安装与新包签名身份不一致；模拟器允许unsigned首次安装，不等于允许随后直接切换为signed升级。不要将该错误当成HAP传输超时或业务jscrash，也不要自动卸载应用来绕过检查。
+
+排查顺序：检查本地default产品的 `signingConfig` 绑定、实际输出的signed/unsigned包、`bm dump -n com.binn.hermeseye` 的安装身份及原部署方式。仅声明signingConfigs材料并不等于default产品正在使用该配置；doctor的“已声明签名”也不证明新包与已安装包签名一致。
+
+本次模拟器原有unsigned安装：解除default产品绑定，保留本地签名材料；`verify.sh --deny-arkts-warnings` → `device.sh install` → `device.sh launch` 成功，覆盖前后UID与首次安装时间一致。device.sh当前固定安装unsigned产物；已有signed安装及真机需使用匹配原身份的有效signed包，不能仅凭配置存在就把unsigned包当成signed包部署。签名切换策略需单独处理。
+
+配置/材料留在本机，禁止提交口令或证书；若原签名确已不可用，卸载会影响本机数据，应先准备可审查的迁移方案并取得用户授权。本轮详细实测见问题18与05。
+
+## 2026-10-21 · 文档索引与结构检查
+
+文档入口改为 [总索引](../README.md) → 五类索引 → 具体文档。`scripts/harness/analysis.cjs` 的 `auditDocs` 检查必需文档、Markdown 文件链接、标题层级和总索引可达性，支持索引嵌套与循环；不再要求 AGENTS 直接链接每篇文档。当前可从仓库根目录直接运行：
+
+```sh
+node -e 'const r = require("./scripts/harness/analysis.cjs").auditDocs(process.cwd()); console.log(JSON.stringify(r, null, 2)); if (r.status === "fail") process.exitCode = 1;'
+```
+
+该检查不在 `verify.sh` 的 15 阶段内。它跳过当前与历史本地证据目录及其缺失链接；不验证锚点、引用式/HTML 链接或内容时效。`doctor.sh` 的规范文件检查已跟随 15/16 迁入 `docs/design/`。本轮 37 篇文档结构检查无发现，8 个临时 fixture 通过；doctor 的规范文件检查通过，仅保留已知 CodeLinter CLI 警告。详见 [本轮验收记录](05-release.md)。

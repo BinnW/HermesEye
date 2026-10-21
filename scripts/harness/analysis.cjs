@@ -7,30 +7,36 @@ function source(file) {
   return { path: path.resolve(file), sha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') };
 }
 
-function walk(dir) {
+function walk(dir, excluded) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(dir, entry.name);
-    if (entry.isSymbolicLink()) return [];
-    return entry.isDirectory() ? walk(file) : [file];
+    if (entry.isSymbolicLink() || excluded.has(file)) return [];
+    return entry.isDirectory() ? walk(file, excluded) : [file];
   });
 }
 
 function auditDocs(root) {
+  root = path.resolve(root);
   const findings = [];
   const add = (severity, file, line, rule, detail) => findings.push({ severity, file, line, rule, detail });
-  const required = ['AGENTS.md', 'README.md', 'docs/08-product-requirements-V1.0.md',
-    'docs/09-frontend-design-V1.0.md', 'docs/03-architecture.md', 'docs/testing/04-test-plan.md',
-    'docs/05-release.md', 'docs/testing/10-test_record.md', 'docs/testing/13-harmony-harness.md'];
+  const required = ['AGENTS.md', 'README.md', 'docs/README.md', 'docs/design/README.md',
+    'docs/modules/README.md', 'docs/plans/README.md', 'docs/issues/README.md', 'docs/testing/README.md',
+    'docs/design/08-product-requirements-V1.0.md', 'docs/design/09-frontend-design-V1.0.md',
+    'docs/design/03-architecture.md', 'docs/testing/04-test-plan.md', 'docs/testing/05-release.md',
+    'docs/issues/10-test_record.md', 'docs/testing/13-harmony-harness.md'];
   for (const file of required) {
     if (!fs.existsSync(path.join(root, file))) add('error', file, 0, 'required-document', '缺少必需文档');
   }
   const docsDir = path.join(root, 'docs');
-  const files = ['AGENTS.md', 'README.md', ...(fs.existsSync(docsDir) ? walk(docsDir)
+  const localEvidence = new Set(['docs/testing/validation', 'docs/validation'].map((dir) => path.join(root, dir)));
+  const isLocalEvidence = (file) => [...localEvidence].some((dir) => file === dir || file.startsWith(`${dir}${path.sep}`));
+  const files = ['AGENTS.md', 'README.md', ...(fs.existsSync(docsDir) ? walk(docsDir, localEvidence)
     .filter((file) => file.endsWith('.md')).map((file) => path.relative(root, file)) : [])];
-  const nav = fs.existsSync(path.join(root, 'AGENTS.md')) ? fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8') : '';
+  const links = new Map();
   for (const file of files) {
     const full = path.join(root, file);
     if (!fs.existsSync(full)) continue;
+    links.set(full, new Set());
     let fence = null;
     let heading = 0;
     let h1 = 0;
@@ -58,19 +64,38 @@ function auditDocs(root) {
         try { local = decodeURIComponent(target.split(/[?#]/)[0]); } catch {
           add('error', file, index + 1, 'invalid-link', '链接编码无效'); continue;
         }
-        if (local && !fs.existsSync(path.resolve(path.dirname(full), local))) {
+        if (!local) continue;
+        const destination = path.resolve(path.dirname(full), local);
+        // Ignored evidence is optional on a fresh clone and never part of the document index.
+        if (isLocalEvidence(destination)) continue;
+        if (!fs.existsSync(destination)) {
           add('error', file, index + 1, 'broken-link', target);
+        } else if (destination.startsWith(`${docsDir}${path.sep}`) && destination.endsWith('.md')) {
+          links.get(full).add(destination);
         }
       }
     });
     if (h1 !== 1) add('warning', file, 1, 'document-title', `一级标题数量为 ${h1}，预期 1`);
-    if (file.startsWith('docs/') && !file.startsWith('docs/testing/validation/') && !nav.includes(`](${file})`)) {
-      add('warning', file, 0, 'navigation', 'AGENTS.md 未直接链接此文档');
+  }
+  const reachable = new Set();
+  const pending = [path.join(docsDir, 'README.md')];
+  while (pending.length) {
+    const file = pending.pop();
+    if (reachable.has(file)) continue;
+    reachable.add(file);
+    for (const destination of links.get(file) || []) pending.push(destination);
+  }
+  for (const file of files) {
+    const full = path.join(root, file);
+    if (full.startsWith(`${docsDir}${path.sep}`) && !reachable.has(full)) {
+      add('warning', file, 0, 'navigation', '从 docs/README.md 沿文档链接不可达');
     }
   }
   return { status: findings.some((x) => x.severity === 'error') ? 'fail' : findings.length ? 'warning' : 'pass',
     checkedFiles: files.filter((file) => fs.existsSync(path.join(root, file))).length, findings,
-    limitations: ['未验证锚点、引用式或 HTML 链接；标题检查不解析 Setext 标题', '结构通过不代表语义、时效或验收状态一致，需人工评审'] };
+    limitations: ['未验证锚点、引用式或 HTML 链接；标题检查不解析 Setext 标题',
+      '导航覆盖仅沿 docs/README.md 到 docs 内 Markdown 文档的链接检查；本地 validation 证据不扫描，也不要求存在',
+      '结构通过不代表语义、时效或验收状态一致，需人工评审'] };
 }
 
 function analyzeLogs(file, pid) {

@@ -54,17 +54,17 @@ flowchart TD
 
 | 模块及源码 | 实际职责与边界 |
 |---|---|
-| [Index.ets](../entry/src/main/ets/pages/Index.ets) | 页面状态、路由、表单草稿、保存锁、消息发送、凭据读取、日历导入、提醒补偿均集中在此；当前没有独立应用用例层 |
-| [Workspace.ts](../entry/src/main/ets/core/Workspace.ts) | 工作区实体、关联、迁移、校验、计划规则、记录汇总；不调用平台或网络 |
-| [Domain.ts](../entry/src/main/ets/core/Domain.ts) | URL/文本校验、分享上下文、兼容聊天请求/响应和旧数据规则；不是后端业务协议 |
-| [WorkspaceRepository.ets](../entry/src/main/ets/services/WorkspaceRepository.ets) | 整体工作区 JSON 读取、校验和原子替换；无数据库、操作日志或同步队列 |
-| [ConnectionService.ets](../entry/src/main/ets/services/ConnectionService.ets) / [CredentialStore.ets](../entry/src/main/ets/services/CredentialStore.ets) | 连接与凭据保存协调；凭据使用不可变别名写 Asset Store |
-| [HermesClient.ets](../entry/src/main/ets/services/HermesClient.ets) | 单个活动 HTTP 请求、模型列表检测、非流式文本回复、停止本机等待 |
-| [NativeData.ets](../entry/src/main/ets/services/NativeData.ets) | 按日读取日历实例、电量/时间快照、系统普通提醒注册与取消；没有健康数据适配器 |
-| [IntegrationCapabilities.ets](../entry/src/main/ets/services/IntegrationCapabilities.ets) | 静态列出未接入能力；不是运行时能力协商或服务发现 |
-| [PlatformErrors.ets](../entry/src/main/ets/services/PlatformErrors.ets) | SDK 操作阶段和数值错误码；脱敏错误诊断 |
-| [SystemPresentation.ets](../entry/src/main/ets/services/SystemPresentation.ets) / [KeyboardAvoidance.ets](../entry/src/main/ets/services/KeyboardAvoidance.ets) | Toast、主题、窗口键盘监听与异常边界 |
-| [Repository.ets](../entry/src/main/ets/services/Repository.ets) | 旧格式仓储；当前 Index 使用 WorkspaceRepository，旧文件由后者读取迁移 |
+| [Index.ets](../../entry/src/main/ets/pages/Index.ets) | 页面状态、路由、表单草稿、保存锁、消息发送、凭据读取、日历导入、提醒补偿均集中在此；当前没有独立应用用例层 |
+| [Workspace.ts](../../entry/src/main/ets/core/Workspace.ts) | 工作区实体、关联、迁移、校验、计划规则、记录汇总；不调用平台或网络 |
+| [Domain.ts](../../entry/src/main/ets/core/Domain.ts) | URL/文本校验、分享上下文、兼容聊天请求/响应和旧数据规则；不是后端业务协议 |
+| [WorkspaceRepository.ets](../../entry/src/main/ets/services/WorkspaceRepository.ets) | 整体工作区 JSON 读取、校验和原子替换；无数据库、操作日志或同步队列 |
+| [ConnectionService.ets](../../entry/src/main/ets/services/ConnectionService.ets) / [CredentialStore.ets](../../entry/src/main/ets/services/CredentialStore.ets) | 连接与凭据保存协调；凭据使用不可变别名写 Asset Store |
+| [HermesClient.ets](../../entry/src/main/ets/services/HermesClient.ets) | 单个活动 HTTP 请求、模型列表检测、非流式文本回复、停止本机等待 |
+| [NativeData.ets](../../entry/src/main/ets/services/NativeData.ets) | 按日读取日历实例、电量/时间快照、系统普通提醒注册与取消；没有健康数据适配器 |
+| [IntegrationCapabilities.ets](../../entry/src/main/ets/services/IntegrationCapabilities.ets) | 静态列出未接入能力；不是运行时能力协商或服务发现 |
+| [PlatformErrors.ets](../../entry/src/main/ets/services/PlatformErrors.ets) | SDK 操作阶段和数值错误码；脱敏错误诊断 |
+| [SystemPresentation.ets](../../entry/src/main/ets/services/SystemPresentation.ets) / [KeyboardAvoidance.ets](../../entry/src/main/ets/services/KeyboardAvoidance.ets) | Toast、主题、窗口键盘监听与异常边界 |
+| [Repository.ets](../../entry/src/main/ets/services/Repository.ets) | 旧格式仓储；当前 Index 使用 WorkspaceRepository，旧文件由后者读取迁移 |
 
 ## 4. 数据模型、身份与所有权
 
@@ -140,7 +140,7 @@ sequenceDiagram
 
 ### 5.3 每日计划、日历与提醒
 
-计划日期/状态/采纳均由本机规则处理。建议来自前7个自然日的未完成计划与记录 nextTodo，非 AI。采纳创建新事项、保留来源；移除计划保留会话，必要时转为独立需求。事务统计排除日历事项，日历占用只计算已导入非全天快照并合并重叠。详见 [11](modules/11-daily-plan-spec.md)。
+计划日期/状态/采纳均由本机规则处理。建议来自前7个自然日的未完成计划与记录 nextTodo，非 AI。采纳创建新事项、保留来源；移除计划保留会话，必要时转为独立需求。事务统计排除日历事项，日历占用只计算已导入非全天快照并合并重叠。详见 [11](../modules/daily-plan/11-daily-plan-spec.md)。
 
 日历只在主动读取时申请权限，按设备当地自然日查询；实例 key 为日历ID/事件ID/实例起始时间。导入是快照，不回写系统日历，也不自动跟随日历变化。当前空间按 key 去重不代表跨设备或跨日历源的业务去重。
 
@@ -257,9 +257,9 @@ v2 到后续模型的迁移须保留旧文件或可恢复副本、显式版本�
 | 大历史卡顿 | 整快照复制与同步I/O | 明确数据规模、耗时/内存指标后决定存储演进 |
 | 授权范围被历史重发扩大 | 分享数据写进历史 | 确认历史重发/撤回语义及最小化策略 |
 
-已有问题8证据记录：7/7流水线、96组Node、9项Previewer、5项模拟器测试，见 [05](05-release.md) 和 [最终摘要](testing/validation/2026-10-06-issue8-final/summary.json)。这是既有批次结果，不是本轮重跑，也不证明本次架构方案或真实后端已验收。
+已有问题8证据记录：7/7流水线、96组Node、9项Previewer、5项模拟器测试，见 [05](../testing/05-release.md) 和 [最终摘要](../testing/validation/2026-10-06-issue8-final/summary.json)。这是既有批次结果，不是本轮重跑，也不证明本次架构方案或真实后端已验收。
 
-本轮只做源码、既有规格/证据和文档一致性检查；未运行构建、测试、设备或网络联调。后续实现仍按 [04](testing/04-test-plan.md) 的门禁和 [10](testing/10-test_record.md) 的问题记录执行。
+本轮只做源码、既有规格/证据和文档一致性检查；未运行构建、测试、设备或网络联调。后续实现仍按 [04](../testing/04-test-plan.md) 的门禁和 [10](../issues/10-test_record.md) 的问题记录执行。
 
 ## 10. 需求阶段交付与确认机制
 
@@ -473,7 +473,7 @@ flowchart LR
 用户已明确要求实现，并确认采用“独立业务服务，先本地实现与测试”。此要求取代前文各阶段“本轮仅设计/不改代码”的执行限制；原评审记录保留。当前交付为共享基础架构的可运行本地预览，**不是全部 V1.0 模块完成或家庭服务器验收**。
 
 - `backend/`：Python 标准库 HTTP + SQLite；单进程、单个人空间，独立业务 Token，默认仅监听回环地址。稳定 serverId/workspaceId 保存在数据库，改地址不改身份；换 workspace 配置拒绝打开原库。更换 Token 是同空间轮换，不代表换账号。
-- `/eye/v1`：业务对象修订、CAS、删除墓碑、增量分页/快照、持久化去重回执。冲突也保存回执，解决时使用新 mutationId；不以时间覆盖。完整线协议与启动方法见 [业务服务说明](../backend/README.md)。这是本仓库协议，不是官方 Hermes 新接口。
+- `/eye/v1`：业务对象修订、CAS、删除墓碑、增量分页/快照、持久化去重回执。冲突也保存回执，解决时使用新 mutationId；不以时间覆盖。完整线协议与启动方法见 [业务服务说明](../../backend/README.md)。这是本仓库协议，不是官方 Hermes 新接口。
 - 持久会话使用官方 `/api/sessions` 和 `/chat`，保存 Need 映射并接受返回的会话轮换 ID；每次仅发送新输入。异步执行单独使用 `/v1/runs`，默认关闭，不宣称 session_id 自动恢复运行历史。
 - 操作先落库再请求上游；重复 operationId 返回原记录，内容不同拒绝。提交后断线/未获回执标记 unknown；重启将 submitting 转 unknown，禁止自动重放。未知操作阻塞该 Need 新执行，需人工核对，不提供猜测性“成功”或强制重试按钮。
 - 运行采用单采集者归档；事件本地序号可分页读取。重启/中断记录 capture.gap；查询状态失败只改变观察状态，停止请求只记 stopping。审批、调度、成果部署能力明确关闭。
@@ -482,7 +482,7 @@ flowchart LR
 
 ### 本地验证与剩余范围
 
-Harness 新增 `logic-business` 与 `backend-service` 两阶段，完整流水线现为 9 阶段。新增测试覆盖跨重启去重、双端冲突、墓碑、分页、身份隔离、HTTP 认证、原生会话映射、未知执行不重放、停止语义，以及客户端落盘失败/游标/outbox 保护。实际最终结果见 [05](05-release.md)。
+Harness 新增 `logic-business` 与 `backend-service` 两阶段，完整流水线现为 9 阶段。新增测试覆盖跨重启去重、双端冲突、墓碑、分页、身份隔离、HTTP 认证、原生会话映射、未知执行不重放、停止语义，以及客户端落盘失败/游标/outbox 保护。实际最终结果见 [05](../testing/05-release.md)。
 
 仍未实现：旧四页全面改走业务服务、v2 显式选择迁移、远端完整历史分页 UI、服务端多用户认证、审批与工具细粒度授权、周期调度、阅读/知识适配和成果部署。服务端项目/记录/阅读仅有基本对象存储，不等同于模块完整交付；计划删除尚不跨业务实体自动改归属。以上保留为 V1.0 待办，不从产品范围删除。
 
@@ -496,21 +496,21 @@ Harness 新增 `logic-business` 与 `backend-service` 两阶段，完整流水�
 
 ### 2026-10-07 · 真实本机链路验证增量
 
-用户随后要求实际联调，已验证开发机业务HTTP → 生产适配器 → `http://127.0.0.1:8642` 的认证、能力/模型读取、原生会话两轮上下文、操作去重及新业务进程恢复原账本。第一轮2.69秒，第二轮1.14秒，同一会话4条消息；重复提交没有新增远端消息。测试无工具消息，详细证据与限制见 [05真实联调记录](05-release.md#2026-10-07--真实-hermes-本机联调)。此结果更新前述“本机真实会话未验证”状态；不扩展为手机网络、Hermes进程重启、run/事件/审批/调度或工具权限已验收。
+用户随后要求实际联调，已验证开发机业务HTTP → 生产适配器 → `http://127.0.0.1:8642` 的认证、能力/模型读取、原生会话两轮上下文、操作去重及新业务进程恢复原账本。第一轮2.69秒，第二轮1.14秒，同一会话4条消息；重复提交没有新增远端消息。测试无工具消息，详细证据与限制见 [05真实联调记录](../testing/05-release.md#2026-10-07--真实-hermes-本机联调)。此结果更新前述“本机真实会话未验证”状态；不扩展为手机网络、Hermes进程重启、run/事件/审批/调度或工具权限已验收。
 
 ## 2026-10-09 · 项目目标管理增量
 
-Project在Workspace v2内采用可选字段扩展（类型、状态、完成标准、日期、里程碑、复盘），旧项目保留原ID/目标/关联，缺省按其他/进行中展示；不修改既有文件路径与空间隔离。规则仍在core，ProjectPanel承担表单与详情，Index负责原子提交及任务/会话路由。主项目数据仍为WorkspaceRepository本机存储，未接到BusinessCoordinator副本。未来Run/AgentTask/Approval/Artifact协议及幂等恢复约定见[项目规格§6](modules/17-project-spec.md#6-未来软件项目与-multi-agent-设计协议草案未实现)，属于设计而非已接入能力。
+Project在Workspace v2内采用可选字段扩展（类型、状态、完成标准、日期、里程碑、复盘），旧项目保留原ID/目标/关联，缺省按其他/进行中展示；不修改既有文件路径与空间隔离。规则仍在core，ProjectPanel承担表单与详情，Index负责原子提交及任务/会话路由。主项目数据仍为WorkspaceRepository本机存储，未接到BusinessCoordinator副本。未来Run/AgentTask/Approval/Artifact协议及幂等恢复约定见[项目规格§6](../modules/projects/17-project-spec.md#6-未来软件项目与-multi-agent-设计协议草案未实现)，属于设计而非已接入能力。
 
 
 ## 2026-10-11 · 阅读自动化重设计启动
 
-用户指定优先自动获取笔记、定时整理并写入IMA，详见 [19阅读规格](modules/19-reading-spec.md) 与 [20阶段记录](modules/20-reading-design-record.md)。当前阅读仍是本机展示模型；业务服务book投影字段有限且progress为数值，与客户端string/null不一致。建议新增来源条目、完整采集批次、总结及外部交付回执的业务契约，复用Hermes生成/调度能力，IMA写入由受控适配器执行。具体对象/API与部署能力待核验，不因通用会话已联调就声明阅读闭环已接通。未知写入禁止盲目重发；已有总结保留，不重生成以掩盖交付失败。本轮仅设计，未修改代码、调用数据源或调整验收结论。
+用户指定优先自动获取笔记、定时整理并写入IMA，详见 [19阅读规格](../modules/reading/19-reading-spec.md) 与 [20阶段记录](../modules/reading/20-reading-design-record.md)。当前阅读仍是本机展示模型；业务服务book投影字段有限且progress为数值，与客户端string/null不一致。建议新增来源条目、完整采集批次、总结及外部交付回执的业务契约，复用Hermes生成/调度能力，IMA写入由受控适配器执行。具体对象/API与部署能力待核验，不因通用会话已联调就声明阅读闭环已接通。未知写入禁止盲目重发；已有总结保留，不重生成以掩盖交付失败。本轮仅设计，未修改代码、调用数据源或调整验收结论。
 
 
 ## 2026-10-11 · 阅读范围收敛（取代同日IMA方案）
 
-用户最新要求只保留自动获取笔记、定时整理，页面展示阅读进度与疑问交互结果。此前阅读自动写入IMA的建议与交付回执需求退出本模块；不影响其他模块知识库设计。当前有效设计见 [19](modules/19-reading-spec.md)，历史见 [20](modules/20-reading-design-record.md)。业务服务保存采集批次、整理结果及疑问关联，Hermes负责整理/回答；客户端展示真实进度与交互结果。疑问入口尚待确认，不从AI建议推断用户意图。复用原操作账本与来源授权，移除阅读专用IMA适配前置依赖。本轮只改文档，无代码、外部动作或新验收结论。
+用户最新要求只保留自动获取笔记、定时整理，页面展示阅读进度与疑问交互结果。此前阅读自动写入IMA的建议与交付回执需求退出本模块；不影响其他模块知识库设计。当前有效设计见 [19](../modules/reading/19-reading-spec.md)，历史见 [20](../modules/reading/20-reading-design-record.md)。业务服务保存采集批次、整理结果及疑问关联，Hermes负责整理/回答；客户端展示真实进度与交互结果。疑问入口尚待确认，不从AI建议推断用户意图。复用原操作账本与来源授权，移除阅读专用IMA适配前置依赖。本轮只改文档，无代码、外部动作或新验收结论。
 
 ## 2026-10-11 · V1 项目与阅读实施增量
 
@@ -520,7 +520,7 @@ Project在Workspace v2内采用可选字段扩展（类型、状态、完成标�
 
 长来源按位置分片，完整采集后发布；无变化、提交未知或重启均不自动重放。问题由用户在应用内明确提出，确认原始片段后创建独立 Need；保留旧阅读资料，禁止从旧总结制造已回答问题。Book.progress 明确为整数百分数/null，与旧 ReadingItem 文本进度并存，不强行转换。客户端身份校验后原子缓存副本，不将不同业务空间合并。
 
-当前容量、时区/周期语义、引用限制及未联调范围见 [19](modules/19-reading-spec.md)、[业务服务协议](../backend/README.md)。HTTP/SQLite/模拟平台用例证明契约与逻辑，不证明真实来源权限、家庭部署或完整设备网络链路。实际本轮结果见 [05](05-release.md)，证据继续仅保留本地。
+当前容量、时区/周期语义、引用限制及未联调范围见 [19](../modules/reading/19-reading-spec.md)、[业务服务协议](../../backend/README.md)。HTTP/SQLite/模拟平台用例证明契约与逻辑，不证明真实来源权限、家庭部署或完整设备网络链路。实际本轮结果见 [05](../testing/05-release.md)，证据继续仅保留本地。
 
 
 ## 2026-10-11 · V2 表现层

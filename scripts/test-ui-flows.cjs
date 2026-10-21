@@ -441,17 +441,17 @@ async function main() {
     assert.notEqual(h.data, original, '提交后页面应持有新的工作区快照对象');
     assert.notEqual(saved[0], original, '写入本机的应是提交副本而不是内存原稿');
     assert.equal(savedItems.join(','), 'done', '点击完成时写入本机的计划状态应为 done');
-    assert.equal(counts.join(' '), '1/0/1 0/0/2 0/1/1', '完成数/进行中/待完成应随每次点击变化且不含日历事项');
-    assert.equal(countsWhileFiltered, '1/0/1', '界面筛选不应改变本机事务统计口径');
+    assert.equal(counts.join(' '), '1/0/2 0/0/3 0/1/2', '完成数/进行中/待完成应随每次点击变化，日历事项计入统计');
+    assert.equal(countsWhileFiltered, '1/0/2', '界面筛选不应改变本机事务统计口径');
     assert.equal(doneOnly.join(','), 'p1', '筛选「已完成」时只应显示已完成事项');
     assert.equal(visibleOrder.join(','), 'p1,p2,cal', '重要事项在前，日历事项仍应出现在当日列表');
-    assert.equal(visibleOrder.includes('cal'), true, '日历事项应出现在列表但不参与事务完成统计');
+    assert.equal(visibleOrder.includes('cal'), true, '日历事项应出现在列表并参与事务完成统计');
     assert.equal(savedAfterStatusClicks, 3, '三次有效状态点击应各触发一次持久化');
     assert.match(goneToast, /计划不存在/, '对不存在的事项点击状态应给出中文错误');
     assert.equal(saved.length, 5, '改期前的完成点击与改期保存应继续各写入一次');
     assert.equal(moved.date, nextDate, '编辑保存应把事项改到新日期');
     assert.equal(moved.status, 'done', '已完成事项改期后应保留完成状态');
-    assert.equal(countsAfterMove.from, '0/0/1', '改期后原日期不再统计该事项');
+    assert.equal(countsAfterMove.from, '0/0/2', '改期后原日期不再统计该事项，日历事项保留');
     assert.equal(countsAfterMove.to, '1/0/0', '改期后新日期应计入已完成事项');
     w.validateWorkspace(saved[0]);
     w.validateWorkspace(saved[2]);
@@ -567,7 +567,6 @@ async function main() {
     await ui.click('「确认加入所选日程」', async () => { await h.importCalendar(); });
     const imported = w.activeSpace(h.data).plans.map((item) => item.id);
     const importedSource = w.activeSpace(h.data).plans[0].calendarSource.key;
-    const importedBusy = w.calendarBusyMinutes(w.activeSpace(h.data), date);
     const importedCounts = w.planCounts(w.activeSpace(h.data), date).join('/');
     const firstToast = lastToast(toasts);
     const selectionAfterImport = h.calendarSelection.length;
@@ -596,8 +595,7 @@ async function main() {
     assert.equal(loaded.selection, 0, '刷新后不应预选任何日程');
     assert.equal(imported.length, 1, '只应导入勾选的那一条日程');
     assert.equal(importedSource, entries[0].key, '导入的计划应保留日历实例来源 key');
-    assert.equal(importedBusy, 60, '导入一小时后应只统计该日历事项占用 60 分钟');
-    assert.equal(importedCounts, '0/0/0', '日历事项不应计入事务完成统计');
+    assert.equal(importedCounts, '0/0/1', '日历事项计入事务完成统计');
     assert.match(firstToast, /已加入 1 条计划/, '导入成功应提示加入数量');
     assert.equal(selectionAfterImport, 0, '导入成功后应清空勾选状态');
     assert.equal(afterDuplicate, 1, '重复点击导入应跳过同一日历实例');
@@ -1469,7 +1467,7 @@ async function main() {
     assert.match(rebuilt.status, /本次操作已保存/, '重建成功应提示状态以列表为准');
   });
 
-  await test('V2-01', '完成框仅在保存成功后确认，失败回退，日历无完成框行为', async ui => {
+  await test('V2-01', '完成框仅在保存成功后确认，失败回退，日历事项同样可勾选', async ui => {
     const h = componentHandlers('DailyPlanCard', '  aboutToAppear()', '  build()', {});
     h.item = { id: 'p', title: '任务', status: 'doing' }; h.writable = true;
     h.changeStatus = async (_id, status) => { h.item = { ...h.item, status }; };
@@ -1485,7 +1483,11 @@ async function main() {
     await assert.rejects(() => h.complete(true), /save failed/); assert.equal(h.checked, false);
     h.writable = false; await h.complete(true); assert.equal(h.checked, false);
     h.writable = true; h.item.calendarSource = { key: 'calendar' };
-    await h.complete(true); assert.equal(h.item.status, 'todo');
+    h.changeStatus = async (_id, status) => { h.item = { ...h.item, status }; };
+    await ui.click('日历事项：待完成 → 已完成', () => h.complete(true));
+    assert.equal(h.item.status, 'done'); assert.equal(h.checked, true);
+    await ui.click('日历事项取消勾选 → 待完成', () => h.complete(false));
+    assert.equal(h.item.status, 'todo'); assert.equal(h.checked, false);
   });
   await test('V2-02', '撤销恢复原三态并拒绝跨空间、已修改或已移除对象', async ui => {
     const { h, saved } = openPage('V2Undo', ['nav', 'commit', 'plan']);

@@ -99,17 +99,6 @@ export function adoptPlanSuggestion(space: Space, date: string, key: string): vo
   space.plans.push({ id: newId(), date: date, title: suggestion.title, projectId: suggestion.projectId,
     status: 'todo', suggestionKey: suggestion.key, suggestionReason: suggestion.reason });
 }
-export function calendarBusyMinutes(space: Space, date: string): number {
-  if (!validDate(date)) { return 0; }
-  const start = new Date(date + 'T00:00:00').getTime();
-  const end = new Date(shiftDay(date, 1) + 'T00:00:00').getTime();
-  const intervals = space.plans.filter((item: PlanItem) => item.date === date && item.calendarSource && !item.calendarSource.allDay)
-    .map((item: PlanItem) => [Math.max(start, item.calendarSource!.start), Math.min(end, item.calendarSource!.end)])
-    .filter((item: number[]) => item[1] > item[0]).sort((a: number[], b: number[]) => a[0] - b[0]);
-  let total = 0; let lastEnd = start;
-  intervals.forEach((item: number[]) => { total += Math.max(0, item[1] - Math.max(lastEnd, item[0])); lastEnd = Math.max(lastEnd, item[1]); });
-  return Math.round(total / 60000);
-}
 export function importCalendarPlans(space: Space, entries: CalendarEntry[], keys: string[], date: string, projectId: string): number {
   if (!validDate(date)) { throw new Error('日历日期无效，请刷新'); }
   if (projectId && !space.projects.some((item: Project) => item.id === projectId)) { throw new Error('项目已不存在'); }
@@ -216,7 +205,7 @@ export function moveNeed(space: Space, id: string, name: string, projectId: stri
   need.ownerKind = projectId ? 'project' : 'independent'; need.ownerId = projectId;
 }
 export function planCounts(space: Space, date: string): number[] {
-  const items = space.plans.filter((item: PlanItem) => item.date === date && !item.calendarSource);
+  const items = space.plans.filter((item: PlanItem) => item.date === date);
   return [items.filter((item: PlanItem) => item.status === 'done').length,
     items.filter((item: PlanItem) => item.status === 'doing').length,
     items.filter((item: PlanItem) => item.status === 'todo').length];

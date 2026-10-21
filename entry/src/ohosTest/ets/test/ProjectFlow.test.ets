@@ -51,8 +51,8 @@ export default function projectFlowTest() {
 
     it('projectNewFormOpensKeepsListAndDiscardsOnBack', 0, async () => {
       const driver = Driver.create();
-      const scroll = await driver.findComponent(ON.id('workspace-scroll'));
-      await (await scroll.scrollSearch(ON.id('project-create'))).click();
+      // project-create 已移入粘性页头，直接按 id 查找即可（不再位于 workspace-scroll 内）。
+      await (await driver.findComponent(ON.id('project-create'))).click();
       await driver.delayMs(700);
       // 必填字段与类型选择必须真实渲染（PRJ-02）。
       await driver.assertComponentExist(ON.id('project-name'));

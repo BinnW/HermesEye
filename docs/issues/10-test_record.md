@@ -1,6 +1,6 @@
 # 10 - 模拟器实测/真机实测问题记录
 
-测试用例总设计见 [04 测试与验收计划](04-test-plan.md)；本文件记录实测问题、根因与针对性回归设计。
+测试用例总设计见 [04 测试与验收计划](../testing/04-test-plan.md)；本文件记录实测问题、根因与针对性回归设计。
 
 ## 问题1：键盘遮挡内容
 
@@ -26,7 +26,7 @@
 
 ### 验证结果
 
-见 [发布与验收记录](../05-release.md) 中的“键盘遮挡修复”。
+见 [发布与验收记录](../testing/05-release.md) 中的“键盘遮挡修复”。
 
 
 ## 问题2：会话页面不显示上次会话结果
@@ -47,7 +47,7 @@
 
 消息列表改为 `ForEach(this.selectedNeed()?.messages ?? [], ...)`，在更新回调中读取最新 `@State data`，不再使用进入会话时的 `need.messages` 快照。保持现有发送、保存、消息顺序与上下文授权逻辑。发送中气泡和加载位置由问题3单独处理。
 
-旁证：同日“日历内容响应式刷新修复”（[05](../05-release.md)）确认为同一模式——日历字符串按值传入 `@Builder hint`，闭包保留初始文本导致展示不更新。会话页属同类缺陷。
+旁证：同日“日历内容响应式刷新修复”（[05](../testing/05-release.md)）确认为同一模式——日历字符串按值传入 `@Builder hint`，闭包保留初始文本导致展示不更新。会话页属同类缺陷。
 
 ### 回归设计（2026-10-03）
 
@@ -69,7 +69,7 @@
 
 ### 验证结果
 
-本轮构建与回归结果见 [05](../05-release.md)；未将领域快照测试等同于实际 UI 收发验收。
+本轮构建与回归结果见 [05](../testing/05-release.md)；未将领域快照测试等同于实际 UI 收发验收。
 
 ## 问题3：发送后未立即显示消息，加载动效位置不合理
 
@@ -110,7 +110,7 @@
 
 ### 验证结果
 
-生产 `send()` 等待、成功、重复点击、网络失败及保存失败回归通过；DevEco 主包与设备测试包构建通过。已更新并启动模拟器，实际气泡位置、停止操作与真实 Hermes 收发仍待设备验收，见 [05](../05-release.md)。
+生产 `send()` 等待、成功、重复点击、网络失败及保存失败回归通过；DevEco 主包与设备测试包构建通过。已更新并启动模拟器，实际气泡位置、停止操作与真实 Hermes 收发仍待设备验收，见 [05](../testing/05-release.md)。
 
 ## 问题4：操作提示集中在页面顶部，反馈不易察觉
 
@@ -148,7 +148,7 @@
 
 ### 验证结果
 
-DevEco 主包与设备测试包构建通过，三套逻辑回归通过。尚无针对 Toast 展示的设备自动验收，显示位置、持续时间和连续操作效果待复测，见 [05](../05-release.md)。
+DevEco 主包与设备测试包构建通过，三套逻辑回归通过。尚无针对 Toast 展示的设备自动验收，显示位置、持续时间和连续操作效果待复测，见 [05](../testing/05-release.md)。
 
 ## 问题5：读取日历后无法选择日程加入每日计划
 
@@ -190,7 +190,7 @@ DevEco 主包与设备测试包构建通过，三套逻辑回归通过。尚无�
 
 ### 验证结果
 
-日历结构化读取与导入逻辑回归通过；DevEco 主包与设备测试包构建通过，已更新并启动模拟器。实际系统授权、日程类型展示及连续导入仍待设备验收，见 [05](../05-release.md)。
+日历结构化读取与导入逻辑回归通过；DevEco 主包与设备测试包构建通过，已更新并启动模拟器。实际系统授权、日程类型展示及连续导入仍待设备验收，见 [05](../testing/05-release.md)。
 
 ## 问题6：每日计划模块结构混乱，操作流程不完整
 
@@ -240,7 +240,7 @@ DevEco 主包与设备测试包构建通过，三套逻辑回归通过。尚无�
 
 下一步定位所需证据：重复记录是否位于同一列表、两条记录的日历/事件标识、实例起止时间及全天标志。相同 key 的输入已有去重逻辑与模拟用例，但本轮未运行设备复现；不能直接归因于系统日历或断定界面渲染没有问题。
 
-处理边界：本轮仅说明与记录分析，不改变查询、去重、显示或导入规则；标题和时间相同不足以证明同一事件，不直接合并。关联记录见 [每日计划开发记录](../modules/12-daily-plan-implementation.md)。
+处理边界：本轮仅说明与记录分析，不改变查询、去重、显示或导入规则；标题和时间相同不足以证明同一事件，不直接合并。关联记录见 [每日计划开发记录](../modules/daily-plan/12-daily-plan-implementation.md)。
 
 ## 问题8：21 处 SDK 调用未处理 `@throws`，编译器逐点告警
 
@@ -254,7 +254,7 @@ DevEco 主包与设备测试包构建通过，三套逻辑回归通过。尚无�
 - 文案全部一致：`Function may throw exceptions. Special handling is required.`；
 - 分布：`WorkspaceRepository.ets` 9 处、`NativeData.ets` 6 处、`KeyboardAvoidance.ets` 3 处、`pages/Index.ets` 2 处、`CredentialStore.ets` 1 处。
 
-证据：[最终流水线编译日志](validation/2026-10-04-final/hap-default.log)。
+证据：[最终流水线编译日志](../testing/validation/2026-10-04-final/hap-default.log)。
 
 ### 根因分析（2026-10-04）
 
@@ -283,9 +283,9 @@ DevEco 主包与设备测试包构建通过，三套逻辑回归通过。尚无�
 - `bash scripts/verify.sh --deny-arkts-warnings --date 2026-10-06 --label issue8-final --timeout 120`：7/7 阶段通过；领域 15、服务 33、工作区 48 共 96 组 Node 行为测试通过；Previewer 9/9 通过。
 - 主包 ArkTS 告警 **21 → 0**，设备测试包 **1 → 0**；两者均实际重新编译。当前工具链为 SDK/API 26，工程兼容目标仍为 API 24。
 
-证据：[完整验证结果](validation/2026-10-06-issue8-final/results.txt)、[阶段摘要](validation/2026-10-06-issue8-final/summary.json)。迭代过程：[先行逻辑回归](validation/2026-10-06-issue8-logic/results.txt)、[首次编译及类型修正前诊断](validation/2026-10-06-issue8/results.txt)。
+证据：[完整验证结果](../testing/validation/2026-10-06-issue8-final/results.txt)、[阶段摘要](../testing/validation/2026-10-06-issue8-final/summary.json)。迭代过程：[先行逻辑回归](../testing/validation/2026-10-06-issue8-logic/results.txt)、[首次编译及类型修正前诊断](../testing/validation/2026-10-06-issue8/results.txt)。
 
-模拟器 `device.sh test` **5/5 通过**，包括新增 U06 的真实凭据缺失与幂等删除。设备结果及未测范围同步记录在 [05](../05-release.md) 的“问题8 SDK 异常处理”。锁屏下凭据访问、用户拒绝/撤销日历与通知权限、真实磁盘满等仍需专门设备验收；注入失败用例不等同于这些真实系统状态已验证。
+模拟器 `device.sh test` **5/5 通过**，包括新增 U06 的真实凭据缺失与幂等删除。设备结果及未测范围同步记录在 [05](../testing/05-release.md) 的“问题8 SDK 异常处理”。锁屏下凭据访问、用户拒绝/撤销日历与通知权限、真实磁盘满等仍需专门设备验收；注入失败用例不等同于这些真实系统状态已验证。
 
 ## 问题9：A2 本地预览设备验收被 HAP 传输超时阻塞（2026-10-07）
 
@@ -303,7 +303,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 ### 已执行结果
 
-构建/逻辑：Node109、服务端12、Previewer10全通过，ArkTS零告警。设备：安装未完成，测试未运行。证据：[安装重试](validation/2026-10-07-architecture-v1-device/install-retry.txt)、[传输分解](validation/2026-10-07-architecture-v1-device/manual-install.txt)、[设备命令诊断](validation/2026-10-07-architecture-v1-device/transport-diagnostic.txt)、[Harness结果](validation/2026-10-07-architecture-v1-verified/results.txt)。
+构建/逻辑：Node109、服务端12、Previewer10全通过，ArkTS零告警。设备：安装未完成，测试未运行。证据：[安装重试](../testing/validation/2026-10-07-architecture-v1-device/install-retry.txt)、[传输分解](../testing/validation/2026-10-07-architecture-v1-device/manual-install.txt)、[设备命令诊断](../testing/validation/2026-10-07-architecture-v1-device/transport-diagnostic.txt)、[Harness结果](../testing/validation/2026-10-07-architecture-v1-verified/results.txt)。
 
 ### 2026-10-07 · 问题9进一步诊断
 
@@ -321,7 +321,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 结论：部署阻塞已解除，无需修改HAP、签名或业务代码。故障定位在此前异常的设备调试/文件传输链路；由于主机hdc与模拟器均发生重建，尚不能独立证明是哪一端或哪个底层缺陷导致，不将“hdc重启单独解决”写成确定根因。未清除模拟器/应用数据。
 
-证据：[重连过程](validation/2026-10-07-deploy-recovery/reconnect.txt)、[传输恢复](validation/2026-10-07-deploy-recovery/transport-restored.txt)、[安装记录](validation/2026-10-07-deploy-recovery/install.txt)、[启动记录](validation/2026-10-07-deploy-recovery/launch.txt)、[设备测试](validation/2026-10-07-deploy-recovery/device-test.txt)。先前“设备未执行”保留为当时状态，本段更新当前结果；6项测试仍不代表手机到真实业务服务的完整网络流程已验收。
+证据：[重连过程](../testing/validation/2026-10-07-deploy-recovery/reconnect.txt)、[传输恢复](../testing/validation/2026-10-07-deploy-recovery/transport-restored.txt)、[安装记录](../testing/validation/2026-10-07-deploy-recovery/install.txt)、[启动记录](../testing/validation/2026-10-07-deploy-recovery/launch.txt)、[设备测试](../testing/validation/2026-10-07-deploy-recovery/device-test.txt)。先前“设备未执行”保留为当时状态，本段更新当前结果；6项测试仍不代表手机到真实业务服务的完整网络流程已验收。
 
 ## 问题10：日志不可检索、失败静默、无编码规范约束（2026-10-07）
 
@@ -340,7 +340,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 ### 修复
 
-- 新增 `docs/15-coding-standard.md`（分层/命名/类型/错误语义/ArkUI/安全/测试与覆盖率下限）、`docs/16-logging-standard.md`（domain/tag 注册表、级别语义、调用形式、隐私红线、必打点、排查路径）。
+- 新增 `docs/design/15-coding-standard.md`（分层/命名/类型/错误语义/ArkUI/安全/测试与覆盖率下限）、`docs/design/16-logging-standard.md`（domain/tag 注册表、级别语义、调用形式、隐私红线、必打点、排查路径）。
 - 新增 `scripts/check-standards.cjs`：31 条规则，覆盖 `CS-*`（编码）、`LOG-*`（日志）、`PY-*`（后端日志）；`error` 使流水线失败；接入 `verify.sh` 作为第一阶段。
 - 新增 `entry/src/main/ets/services/Logging.ets`：`LOG_DOMAIN=0x1200` + 13 个 tag；改造 3 个日志文件的域/tag 与隐私参数。
 - 后端引入 `logging`：未处理异常记 `method/path/异常类型`，观测失败与事件流中断记 warning，启动信息改 `logger.info`；`log_message` 保持空实现（不记录 URL 与 body）。
@@ -354,7 +354,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 ### 结果
 
-`bash scripts/verify.sh --label coding-standards --deny-arkts-warnings`：**10/10 阶段通过**（规范门禁 0 error / 14 warning、Node 109、服务端 12、Previewer 10、ArkTS 零告警）。证据：[结果](validation/2026-10-07-coding-standards/results.txt)、[规范报告](validation/2026-10-07-coding-standards/standards.json)。
+`bash scripts/verify.sh --label coding-standards --deny-arkts-warnings`：**10/10 阶段通过**（规范门禁 0 error / 14 warning、Node 109、服务端 12、Previewer 10、ArkTS 零告警）。证据：[结果](../testing/validation/2026-10-07-coding-standards/results.txt)、[规范报告](../testing/validation/2026-10-07-coding-standards/standards.json)。
 
 遗留：`stateStyles` 内 `$r`（`CS-12`）与超长行（`CS-17`）为登记的存量告警；`scripts/coverage.cjs` 的分支覆盖率门禁在后续迭代补齐前，规范中的覆盖率下限只是目标值。
 
@@ -366,7 +366,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 ### 判据与证据
 
-同一次用例内取三次值（临时诊断用例，已删除）：`listBefore=2026-10-07 listAfter=2026-10-07 editorDate=2026-10-08`。编辑页的“计划日期”由 `newPlan()` 从 `this.planDate` 初始化，是新建组件，因此**业务状态确实已切换到 10-08**，未刷新的是列表页那个已经存在的输入框。证据：[设备诊断 transcript](validation/2026-10-07-click-flows-diag3/device-test.txt)。
+同一次用例内取三次值（临时诊断用例，已删除）：`listBefore=2026-10-07 listAfter=2026-10-07 editorDate=2026-10-08`。编辑页的“计划日期”由 `newPlan()` 从 `this.planDate` 初始化，是新建组件，因此**业务状态确实已切换到 10-08**，未刷新的是列表页那个已经存在的输入框。证据：[设备诊断 transcript](../testing/validation/2026-10-07-click-flows-diag3/device-test.txt)。
 
 ### 影响
 
@@ -385,7 +385,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 ### 状态
 
-已定位：状态正确、显示不同步。**未修改生产代码**，修复方案待确认；`docs/04` 中对应的显示一致性设备用例在修复后并入。
+已定位：状态正确、显示不同步。**未修改生产代码**，修复方案待确认；`docs/testing/04` 中对应的显示一致性设备用例在修复后并入。
 
 ## 问题12：业务客户端非 200 状态码文案被裸 catch 覆盖（2026-10-07）
 
@@ -412,7 +412,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 ### 14.1 中 · 日历"查看日期已变化"拒绝分支在真实点击路径下不可达
 
 - 位置：`pages/Index.ets:400`（守卫 `if (this.calendarDate !== this.planDate)`）。
-- 期望：`docs/modules/11-daily-plan-spec.md:96`——"切换日期清空选择，隐藏日期不匹配的日历快照；旧日期读取返回后仍按请求日期标记，不能错导入当前日期"。
+- 期望：`docs/modules/daily-plan/11-daily-plan-spec.md:96`——"切换日期清空选择，隐藏日期不匹配的日历快照；旧日期读取返回后仍按请求日期标记，不能错导入当前日期"。
 - 实际：`changePlanDate`（`:296-298`）必然清空 `calendarSelection`，而勾选列表只在 `calendarDate === planDate` 时渲染（`:666`），因此"选择非空"与"日期不一致"不可能同时成立，提示语"查看日期已变化，请刷新对应日历"永远不会出现；真正的并发/旧日期保护来自 `busy` 锁与日期输入禁用。
 - 判据：F04 只能通过直接给 `calendarSelection` 注入值才能覆盖该分支；真实点击"把查看日期改为 2026-10-04"后选择自动归零。
 - 处置建议：要么删除该死分支并在注释/文档中说明 `busy`+日期一致渲染已足够，要么补上真正的"旧日期读取返回后错导入"场景（例如读取完成后校验请求日期与当前日期）。**不要保留无法触达的守卫并以此宣称已防护**。
@@ -420,14 +420,14 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 ### 14.2 低 · 保存成功但连接失败时，常驻状态丢失"配置已保存"事实
 
 - 位置：`pages/Index.ets:246`（相关 `:230`、`:240`）。
-- 期望：`docs/09-frontend-design-V1.0.md:236` 状态为"配置已保存 · 连接失败"；`:190` 要求保存、认证、连接、同步分别判断。
+- 期望：`docs/design/09-frontend-design-V1.0.md:236` 状态为"配置已保存 · 连接失败"；`:190` 要求保存、认证、连接、同步分别判断。
 - 实际：依次置为"配置已保存 · 尚未连接"→"连接中"→认证失败后覆盖为"连接失败 · 本机数据可浏览"，配置其实已落盘（F05 断言 host 已变为 `third.example.org`），但状态栏不再显示已保存。
 - 处置建议：状态文案区分"已保存 + 连接失败"，或在连接失败文案中保留保存结果。
 
 ### 14.3 低 · 重复导入无新增仍触发整快照写入
 
 - 位置：`pages/Index.ets:402-407`。
-- 期望：`docs/modules/11-daily-plan-spec.md:98`"重复选中项跳过"；`docs/03-architecture.md:100` 指出整快照复制的 I/O 成本随历史增长。
+- 期望：`docs/modules/daily-plan/11-daily-plan-spec.md:98`"重复选中项跳过"；`docs/design/03-architecture.md:100` 指出整快照复制的 I/O 成本随历史增长。
 - 实际：选择非空且日期一致即无条件 `commit`；当所选实例都已导入时 `importCalendarPlans` 返回 0，仍然执行 `copyWorkspace + validateWorkspace + 原子写盘`，并提示"已加入 0 条计划"。
 - 判据：F04「再次勾选已导入的『周会』→ 确认加入」后保存探针计数由 1 变 2，计划数仍为 1。
 - 处置建议：`added === 0` 时不落盘，提示改为"所选日程均已在计划中"。
@@ -438,11 +438,11 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 
 ## 2026-10-09 · 项目模块构建与验证记录（非设备验收）
 
-本轮新增个人目标项目管理，设计和实现范围见[17](../modules/17-project-spec.md)、[18](../modules/18-project-implementation.md)。编译中发现ProjectPanel的`key()`与ArkUI基类同名，已改为`draftKey()`；摘要返回值修正后主包/测试包均通过。针对输入控件初始化文本可能不随草稿清空的问题，新组件仅在保存成功后重建相应字段，未修改问题11的旧每日计划实现，也不将其标记为已解决。
+本轮新增个人目标项目管理，设计和实现范围见[17](../modules/projects/17-project-spec.md)、[18](../modules/projects/18-project-implementation.md)。编译中发现ProjectPanel的`key()`与ArkUI基类同名，已改为`draftKey()`；摘要返回值修正后主包/测试包均通过。针对输入控件初始化文本可能不随草稿清空的问题，新组件仅在保存成功后重建相应字段，未修改问题11的旧每日计划实现，也不将其标记为已解决。
 
 最终批次`2026-10-09-project-module-delivery`：12/13阶段通过；规范0 error/13 warning，既有逻辑与后端通过，两个HAP及本地Hypium零ArkTS告警，Hypium10/10。唯一未通过项为coverage（core行80.5%、块94%），新项目规则分支缺少用例。遵循用户本轮不新增测试用例的明确要求，没有调整测试或下限。
 
-首轮后端回环监听受沙箱限制，Previewer卡住后手动终止；沙箱外最终同轮全部对应阶段通过，早期历史hypium-result不作证据。没有连接设备；新项目交互、主题/键盘/可访问性和真实Hermes未验收。浏览器拒绝file协议，原型未完成视觉核验，不尝试其他方式绕过。证据：[最终结果](validation/2026-10-09-project-module-delivery/results.txt)、[摘要](validation/2026-10-09-project-module-delivery/summary.json)。
+首轮后端回环监听受沙箱限制，Previewer卡住后手动终止；沙箱外最终同轮全部对应阶段通过，早期历史hypium-result不作证据。没有连接设备；新项目交互、主题/键盘/可访问性和真实Hermes未验收。浏览器拒绝file协议，原型未完成视觉核验，不尝试其他方式绕过。证据：[最终结果](../testing/validation/2026-10-09-project-module-delivery/results.txt)、[摘要](../testing/validation/2026-10-09-project-module-delivery/summary.json)。
 
 ## 问题15：项目模块补充用例时发现的实现与设备层限制（2026-10-09）
 
@@ -451,7 +451,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 ### 15.1 中 · 状态机放行了规格状态图中不存在的转移
 
 - 位置：`entry/src/main/ets/core/Workspace.ts:431`（`changeProjectStatus`）。
-- 期望：`docs/modules/17-project-spec.md` §5.4 状态图只定义 active↔paused、active/paused/completed→archived、archived→active、active→completed（需完成标准 + 依据）。
+- 期望：`docs/modules/projects/17-project-spec.md` §5.4 状态图只定义 active↔paused、active/paused/completed→archived、archived→active、active→completed（需完成标准 + 依据）。
 - 实际：代码只拦截 `archived → 非 active`，因此 `paused → completed` 与 `completed → paused` 都被放行。
 - 最小复现（Node 注入）：`saveProject(...)` → `changeProjectStatus(space, id, 'paused', '')` → `changeProjectStatus(space, id, 'completed', '依据')` 成功；再 `changeProjectStatus(space, id, 'paused', '')` 也成功。
 - 影响：暂停中的目标可以未经"重新推进"直接声明达成，达成后也可以直接退回暂停，与 §5.4 与 §3.1（`completed` 是用户声明的达成）不一致，界面上的状态按钮组合也会出现规格未定义路径。
@@ -467,13 +467,13 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 ### 15.3 设备层无法稳定覆盖表单中段字段（测试限制，非产品缺陷）
 
 - 现象：`ProjectFlow.test.ets` 早期版本在模拟器上向 `project-goal`/`project-criteria` 输入时，TestKit 的 `Component.scrollSearch` 会长时间阻塞（两次 60 秒超时），超时残留的调用还会让下一条用例报 `uitest-api does not allow calling concurrently`。改用 `inputText(text, { paste: true })` 绕开软键盘后仍复现，说明瓶颈在滚动检索而不只是 IME。
-- 处置：设备用例改为只读（检索/筛选/空态、新建表单渲染、返回不落盘），完整"新建→里程碑→复盘→归档"链路由 Node 层 F08 覆盖；限制与取舍写入 [04 测试计划](04-test-plan.md) 的「设备层取舍」。
+- 处置：设备用例改为只读（检索/筛选/空态、新建表单渲染、返回不落盘），完整"新建→里程碑→复盘→归档"链路由 Node 层 F08 覆盖；限制与取舍写入 [04 测试计划](../testing/04-test-plan.md) 的「设备层取舍」。
 - 状态：限制已记录；若后续需要设备级落盘证据，建议先在 `device.sh` 增加"关闭软键盘后执行"的能力或改用坐标稳定的短表单，再补用例。
 
 ### 15.4 已修复 · 键盘回归用例断在旧表单 id
 
 - `Ability.test.ets` 的键盘用例原先依赖 `input-项目名称`、`input-目标 / 完成标准` 与文本「创建项目」。项目页改为 `ProjectPanel` 后这些 id/文案不再存在，设备回归报 `Cannot read property click of null`。
-- 已更新为 `project-name`、`project-goal`、`project-save`；修复后该用例与项目用例在模拟器上 **10/10 通过**。证据：[设备结果](validation/2026-10-09-project-module-device/device-test.txt)。
+- 已更新为 `project-name`、`project-goal`、`project-save`；修复后该用例与项目用例在模拟器上 **10/10 通过**。证据：[设备结果](../testing/validation/2026-10-09-project-module-device/device-test.txt)。
 
 ### 问题15 · 2026-10-11 V1 修复更新
 
@@ -496,7 +496,7 @@ Harness 9/9通过且两包生成，但 `device.sh install` 停在主包安装。
 ### 16.1 高 · 失败周期在元数据校验前就发布了新副本
 
 - 位置：`backend/reading.py:188`（写回 `reading_books`）早于 `:193`（`parts()` 的元数据校验）。
-- 规格：`docs/modules/19-reading-spec.md:17`「范围内全部来源成功后才发布新副本；失败保留上次副本」。
+- 规格：`docs/modules/reading/19-reading-spec.md:17`「范围内全部来源成功后才发布新副本；失败保留上次副本」。
 - 复现：先采集 `highlight-1`；再把来源换成 `{'id':'highlight-2','text':'new','location':'L'*4000}` 并 `cycle('c2')` → `cycle` 抛 `413 reading_metadata_limit`，但 `reading_books` 已含 `['highlight-1','highlight-2']`，且该 collection 记录为 `collected`（`error=reading_metadata_limit`）。上次成功副本已被替换。
 - 影响：违反"失败保留上次副本"，用户会看到一次失败采集把成功结果覆盖成大杂烩。
 - 处置建议：把 `parts()` 的元数据预校验（以及对合并后条目的容量复核）前移到发布之前，失败时整体回滚。
@@ -556,3 +556,18 @@ F11–F16 与后端 40 条新用例把这些行为都**如实断言**（包括�
 问题17追加：首页截图仅说明默认自动滚动未到达入口，不能证明Scroll不可滚动。TestKit布局诊断确认Scroll为scrollable=true，边界[0,261][1320,2148]，悬浮按钮在[123,1893][392,2070]；默认底部起划落在胶囊内。设备用例改在可见内容区滑动并校验按钮位于导航上方；公共Scroll显式使用剩余高度。导航移除覆盖普通圆角的stateStyles，原生截图确认选中项已圆角。最终结果见05/21。
 
 问题17最终验证：`v2-release-ready` 15/15阶段、零ArkTS告警；`v2-release-device` 模拟器12/12、Failure 0 / Error 0，含业务返回与首页阅读可达。业务返回用例等待导航重绘，避免立即查询导致偶发假失败；真实后端与多尺寸专项未测。
+
+
+## 问题18 · 安装签名身份不一致 9568332（2026-10-18）
+
+**现象**：DevEco安装 `entry-default-signed.hap` 返回 `install sign info inconsistent`。本轮使用现有签名包复现同一错误。
+
+**根因**：模拟器已有以未签名开发身份安装的同包名应用（含entry_test模块）；本地default产品新增 `signingConfig: default` 绑定后，IDE改为部署带签名包。模拟器允许未签名开发安装，并不代表允许同包名升级时任意切换签名身份。资源、网络与业务代码不是这次失败原因。
+
+**修复**：仅移除本地 `build-profile.json5` 中default产品的签名绑定，保留signingConfigs材料；重新构建并覆盖安装未签名主包与测试包。签名配置含本机凭据，不纳入Git。构建后输出目录仅有当前未签名主包，避免误选旧signed产物。
+
+**验证**：`install-signature-fix` Harness 15/15通过，主包/测试包/本地Hypium均零ArkTS告警；编译器提示default未绑定签名是本模拟器方案的预期提示。主包和测试包均安装成功，EntryAbility启动后进程存活。覆盖前后appId、UID和首次安装时间一致，未执行卸载、清空数据或重置模拟器。未直接读取用户内容，本次不重复设备业务套件。
+
+**边界**：修复针对当前API26模拟器的已有开发安装。真机必须使用有效签名；已有签名安装须沿用原签名身份，不能直接套用本次未签名方案。若确需换签名且无法保留原身份，应先评估迁移与数据，再由用户授权卸载；禁止安装失败时自动卸载。
+
+证据仅本地：`docs/testing/validation/2026-10-18-install-signature/`（复现、安装与前后身份摘要），以及 `2026-10-18-install-signature-fix/`（完整门禁）。拉取已安装HAP遭系统权限拒绝，未将该失败误记为证书验证通过；身份判断来自部署历史、bm摘要与签名/未签名安装对照。

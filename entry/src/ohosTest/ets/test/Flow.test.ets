@@ -11,8 +11,6 @@ export default function flowTest() {
     it('planDateSheetChangesTheVisibleDateAndNewItemDate', 0, async () => {
       const driver = Driver.create();
       await (await driver.findComponent(ON.id('main-navigation-0'))).click();
-      const scroll = await driver.findComponent(ON.id('workspace-scroll'));
-      await (await scroll.scrollSearch(ON.text('今日计划 ›'))).click();
       await driver.delayMs(500);
       const selector = await driver.findComponent(ON.id('plan-date-selector'));
       const today = (await selector.getText()).slice(0, 10);
@@ -38,12 +36,11 @@ export default function flowTest() {
       await (await driver.findComponent(ON.text('手机日历'))).click(); await driver.delayMs(400);
       await driver.assertComponentExist(ON.text('日历安排 · 手机日历'));
       await driver.pressBack(); await driver.delayMs(400);
-      await driver.assertComponentExist(ON.text('每日计划'));
+      await driver.assertComponentExist(ON.id('plan-date-selector'));
       await (await driver.findComponent(ON.text('添加事项'))).click(); await driver.delayMs(400);
       await driver.assertComponentExist(ON.id('input-计划事项（1–200 字）'));
       await driver.pressBack(); await driver.delayMs(400);
-      await driver.assertComponentExist(ON.text('每日计划'));
-      await driver.pressBack(); await driver.delayMs(400);
+      await driver.assertComponentExist(ON.id('plan-date-selector'));
       await driver.assertComponentExist(ON.id('main-navigation-0'));
     });
   });

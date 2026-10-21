@@ -35,7 +35,7 @@
 
 构建依赖 DevEco 内置 Node、Java、SDK 和 Hvigor，首次运行需允许写入用户 Hvigor 缓存。Java 路径由脚本补齐。HAP 默认位置：`entry/build/default/outputs/default/entry-default-unsigned.hap`。
 
-本次归档产物：[`HermesEye-0.1.0-release-unsigned.hap`](../../../releases/v0.1.0/HermesEye-0.1.0-release-unsigned.hap)，184882 字节，包名 `com.binn.hermeseye`，最低/目标 API 均为 24。SHA-256：`0959FF37953129FB14DC505DA1E3BEDD9A7FCE57E5AC62458FB9CCFA9C84AFDD`。签名仍未配置；release 模式并不表示已经正式发行。
+本次归档产物：[`HermesEye-0.1.0-release-unsigned.hap`](../../../../releases/v0.1.0/HermesEye-0.1.0-release-unsigned.hap)，184882 字节，包名 `com.binn.hermeseye`，最低/目标 API 均为 24。SHA-256：`0959FF37953129FB14DC505DA1E3BEDD9A7FCE57E5AC62458FB9CCFA9C84AFDD`。签名仍未配置；release 模式并不表示已经正式发行。
 
 ## 试用步骤（签名与安装后）
 1. 设置页填写自己的服务地址与模型、Token，检测连接；正式连接使用 HTTPS。局域网 HTTP 仅用于主动开启的内网 IP 调试。

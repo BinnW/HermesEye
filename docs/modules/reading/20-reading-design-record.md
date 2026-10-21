@@ -35,7 +35,7 @@ ReadingPanel 连接独立业务服务，校验身份并原子缓存副本。去�
 
 测试增加生产契约校验、HTTP 接口、分页/升级/进度单位、跨重启去重、长笔记分片、引用验证、同书问题隔离、未知操作和缓存/身份失败；设备只读用例验证业务连接控件与未连接时不自动采集。首轮发现 ArkUI enabled 字段与基类方法冲突，已改名；来源与 Hermes 采用注入实现，不将 mock 记为真实来源验收。
 
-本轮未调用真实微信读书/Hermes/IMA，不创建 Codex 自动化，不启动用户已授权书籍的采集。启动服务与必要环境变量见 backend/README；家庭部署、来源真实权限、手机网络、长时间周期实跑及大数据容量仍需联调。实际结果以 [05](../05-release.md) 本轮记录为准，验证证据仅保留本地。
+本轮未调用真实微信读书/Hermes/IMA，不创建 Codex 自动化，不启动用户已授权书籍的采集。启动服务与必要环境变量见 backend/README；家庭部署、来源真实权限、手机网络、长时间周期实跑及大数据容量仍需联调。实际结果以 [05](../../testing/05-release.md) 本轮记录为准，验证证据仅保留本地。
 
 本轮最终 Harness 14/14、Node 生产用例220、Python37、本地 Hypium10通过；core行/块100%，services行99.6%/块99.3%，零 ArkTS 告警。最终设备结果与未验收范围见05；来源/Hermes为注入测试，不是本模块真实私人数据联调。
 
@@ -58,17 +58,17 @@ ReadingPanel 连接独立业务服务，校验身份并原子缓存副本。去�
 - 客户端未校验周期 1–720、未勾选同意仍可点采集、提问片段未校验属于选中原文；
 - 业务面板"仅已连接可用"只有 `build()` 层门控。
 
-详见 [10 问题记录](../testing/10-test_record.md) 问题 16。
+详见 [10 问题记录](../../issues/10-test_record.md) 问题 16。
 
 ### 覆盖口径与未验证范围
 
 组件覆盖率分母来自"VM 加载切片偏移 ↔ 整文件 source map"，`build()`/`@Builder`/`@Styles` 声明区不在被测范围，因此 100% 是**切片可达范围**内的 100%，不代表整文件逐行；渲染、可见性与按钮门控仍由设备用例与人工验收覆盖。真实微信读书/Hermes 来源、家庭部署、手机网络与长周期实跑仍未联调，本轮全部为注入实现。
 
-证据：[15/15 结果](../testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](../testing/validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](../testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](../testing/validation/2026-10-11-reading-tests-device/device-test.txt)（目录仅本地保留）。
+证据：[15/15 结果](../../testing/validation/2026-10-11-reading-tests/results.txt)、[ArkTS 覆盖率](../../testing/validation/2026-10-11-reading-tests/coverage.json)、[后端覆盖](../../testing/validation/2026-10-11-reading-tests/backend-coverage.json)、[设备 12/12](../../testing/validation/2026-10-11-reading-tests-device/device-test.txt)（目录仅本地保留）。
 
 
 ### 2026-10-11 · V2 卡片与单层详情
 
 用户授权dev实现V2。ReadingPanel拆分概览、设置、书籍、逐条疑问详情；引用保留全文，回答来自已有操作结果。周期/授权/收集/查询逻辑保持V1生产规则，未增加外部采集能力。旧的无来源示例指标不进入产品。
 
-Node仍验证身份隔离、授权、缓存失败及不确定回执；设备仅验证未连接时隐藏策略控件及首页入口，不代表真实微信读书采集或阅读回答已验收。实际结果见 [21](../21-frontend-v2-implementation.md)。
+Node仍验证身份隔离、授权、缓存失败及不确定回执；设备仅验证未连接时隐藏策略控件及首页入口，不代表真实微信读书采集或阅读回答已验收。实际结果见 [21](../frontend/21-frontend-v2-implementation.md)。

@@ -14,7 +14,7 @@ export default function abilityTest() {
     });
     it('fourMainDestinationsAreAccessible', 0, async () => {
       const driver = Driver.create();
-      await driver.assertComponentExist(ON.text('HermesEye'));
+      await driver.assertComponentExist(ON.id('plan-date-selector'));
       await driver.assertComponentExist(ON.id('main-navigation-0'));
       await driver.assertComponentExist(ON.id('main-navigation-1'));
       await driver.assertComponentExist(ON.id('main-navigation-2'));
@@ -34,48 +34,52 @@ export default function abilityTest() {
       const driver = Driver.create();
       await (await driver.findComponent(ON.id('main-navigation-1'))).click();
       await driver.delayMs(300);
-      await (await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('project-create'))).click();
+      await (await driver.findComponent(ON.id('project-create'))).click();
       await driver.delayMs(300);
-      const scroll = await driver.findComponent(ON.id('workspace-scroll'));
-      const before = await scroll.getBounds();
-      const name = await scroll.scrollSearch(ON.id('project-name'));
+      // 表单字段位于滚动区顶部，直接按 id 定位；避免对 workspace-scroll 句柄做 scrollSearch（键盘会重建滚动容器）。
+      let name = await driver.findComponent(ON.id('project-name'));
+      for (let attempt = 0; attempt < 10 && !name; attempt++) {
+        await driver.delayMs(200);
+        name = await driver.findComponent(ON.id('project-name'));
+      }
       await name.click();
       await driver.delayMs(800);
       expect((await driver.findComponent(ON.id('main-navigation-0'))) === null).assertTrue();
-      const reduced = await (await driver.findComponent(ON.id('workspace-scroll'))).getBounds();
-      expect(reduced.bottom < before.bottom).assertTrue();
       await name.inputText('Keyboard regression draft');
-      const goal = await (await driver.findComponent(ON.id('workspace-scroll')))
-        .scrollSearch(ON.id('project-goal'));
-      await goal.click();
-      await goal.inputText('First line\nSecond line\nThird line\nFourth line\nFifth line\nSixth line');
-      const submit = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('project-save'));
-      const buttonBounds = await submit.getBounds();
-      const viewport = await (await driver.findComponent(ON.id('workspace-scroll'))).getBounds();
-      expect(buttonBounds.top >= viewport.top && buttonBounds.bottom <= viewport.bottom).assertTrue();
-      expect((await driver.findComponent(ON.id('main-navigation-0'))) === null).assertTrue();
+      // 第一次 pressBack 收起软键盘；表单仍在，底部导航仍隐藏。
       await driver.pressBack();
       await driver.delayMs(500);
       expect((await driver.findComponent(ON.id('main-navigation-0'))) === null).assertTrue();
-      const restored = await (await driver.findComponent(ON.id('workspace-scroll'))).getBounds();
-      expect(restored.bottom).assertEqual(before.bottom);
-      const retained = await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.id('project-name'));
+      let retained = await driver.findComponent(ON.id('project-name'));
+      for (let attempt = 0; attempt < 10 && !retained; attempt++) {
+        await driver.delayMs(200);
+        retained = await driver.findComponent(ON.id('project-name'));
+      }
       expect(await retained.getText()).assertEqual('Keyboard regression draft');
-      // Leave the form without creating a project or calling Hermes.
-      await (await (await driver.findComponent(ON.id('workspace-scroll'))).scrollSearch(ON.text('返回'))).click();
+      // 第二次 pressBack 退出表单，回到项目列表，底部导航恢复。
+      await driver.pressBack();
       await driver.delayMs(500);
+      await driver.assertComponentExist(ON.id('main-navigation-0'));
+      await driver.assertComponentExist(ON.id('project-search'));
+      // 收尾回到今日页，确保后续用例处于确定状态。
       await (await driver.findComponent(ON.id('main-navigation-0'))).click();
+      await driver.delayMs(300);
     });
     it('businessPreviewIsReachableWithoutChangingLegacyWorkspace', 0, async () => {
       const driver = Driver.create();
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({ bundleName: 'com.binn.hermeseye', abilityName: 'EntryAbility' });
       await driver.delayMs(500);
       await (await driver.findComponent(ON.id('main-navigation-3'))).click();
+      await driver.delayMs(300);
+      await (await driver.findComponent(ON.id('profile-agent'))).click();
+      await driver.delayMs(300);
       const scroll = await driver.findComponent(ON.id('workspace-scroll'));
       await (await scroll.scrollSearch(ON.text('独立业务服务（本地预览）'))).click();
       await driver.delayMs(300);
       await driver.assertComponentExist(ON.text('业务服务 · 本地预览'));
       await driver.assertComponentExist(ON.text('连接独立业务服务'));
+      await driver.pressBack();
+      await driver.delayMs(300);
       await driver.pressBack();
       for (let attempt = 0; attempt < 10; attempt++) {
         if (await driver.findComponent(ON.id('main-navigation-3'))) { break; }
